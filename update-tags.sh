@@ -17,6 +17,6 @@ cat target.list | while read target; do
 	(sed -i "s/TARGET=.* sh /$target sh /" .github/workflows/main.yml 2>/dev/null || \
 	 sed -i '' "s/TARGET=.* sh /$target sh /" .github/workflows/main.yml 2>/dev/null) &&
 	git commit --signoff -am "release: $TAG" &&
-	git push origin master ||
+	git push origin HEAD ||
 	exit 1
 done

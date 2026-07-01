@@ -1,5 +1,35 @@
 # How to build x-wrt for your devices
 
+## NICOLE1224 Tenda BE12 Pro build
+
+This fork builds the `tenda-be12-pro` branch from
+`NICOLE1224/x-wrt`. That branch uses the matching
+`NICOLE1224/com.x-wrt` feed branch.
+
+The custom build:
+
+- replaces `luci-app-openclash` with `luci-app-homeproxy` and
+  `luci-app-mosdns` in the Tenda BE12 Pro image;
+- pins HomeProxy, MosDNS, and v2ray-geodata source revisions in
+  `prepare-custom-packages.sh`;
+- builds the `mediatek-filogic` target on GitHub Actions.
+
+Trigger a build from a clone of this repository:
+
+```sh
+git switch tenda-be12-pro
+sh update-tags.sh mediatek-filogic
+```
+
+Alternatively, open the repository's **Actions** page, select the workflow,
+and use **Run workflow** on the `tenda-be12-pro` branch.
+
+The downloadable artifact is named
+`x-wrt-tenda-be12-pro=mediatek-filogic`. Select the file containing
+`tenda_be12-pro` from the extracted artifact.
+
+## Upstream instructions
+
 
 ## First, fork this repository to your github account.
 

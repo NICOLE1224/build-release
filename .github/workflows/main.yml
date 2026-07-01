@@ -4,14 +4,15 @@
 #   Author: ptpt52
 #=================================================
 
-name: x-wrt-23.06_b202307110013=ath79-generic
+name: x-wrt-tenda-be12-pro=mediatek-filogic
 
 on: 
+  workflow_dispatch:
   release:
     types: [published]
   push:
     branches:
-      - master
+      - tenda-be12-pro
 #  schedule:
 #    - cron: 0 8 * * 5
 #  watch:
@@ -19,12 +20,12 @@ on:
 
 jobs:
   build:
-    if: contains(github.event.head_commit.message, 'release:')
-    runs-on: ubuntu-20.04
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'release:')
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
 
     - name: Initialization environment
       env:
@@ -52,12 +53,12 @@ jobs:
           openjdk* \
           mysql* \
           php*
-        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
+        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev lib32gcc-s1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
         sudo -E apt-get -y autoremove --purge
         sudo -E apt-get clean
 
     - name: Clone source code
-      run: git clone --depth 1 --branch `cat release.tag` https://github.com/x-wrt/x-wrt.git
+      run: git clone --depth 1 --branch "$(cat release.tag)" https://github.com/NICOLE1224/x-wrt.git
 
     - name: Update feeds
       run: cd x-wrt && ./scripts/feeds update -a
@@ -65,23 +66,26 @@ jobs:
     - name: Install feeds
       run: cd x-wrt && ./scripts/feeds install -a
 
+    - name: Add custom packages
+      run: cd x-wrt && sh ../prepare-custom-packages.sh
+
     - name: Building
       run: |
         cp *.sh x-wrt/
         cp release.tag x-wrt/
         cd x-wrt
         echo -e "$(nproc) thread build."
-        TARGET=ath79-generic sh build.sh $(nproc)
+        TARGET=mediatek-filogic sh build.sh $(nproc)
 
     - name : Upload make.log if failure
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: build-failure-log
         path: make.log
 
     - name : Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: x-wrt-23.06_b202307110013=ath79-generic
+        name: x-wrt-tenda-be12-pro=mediatek-filogic
         path: x-wrt/rom/
