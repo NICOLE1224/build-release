@@ -1,10 +1,16 @@
 
 TARGET=${TARGET-x86_64}
 
-CFGS=`cat ./feeds/x/rom/lede/cfg.list | grep "config.$TARGET$"`
+if [ "$TARGET" = "mediatek-filogic-tenda-be12-pro" ]; then
+	CFGS="config.mediatek-filogic-0"
+	BE12_ONLY="1"
+else
+	CFGS=`cat ./feeds/x/rom/lede/cfg.list | grep "config.$TARGET$"`
+fi
 
 export CFGS="`echo $CFGS`"
 export WORKFLOW="1"
+export BE12_ONLY
 
 echo starting build.
 echo starting build..
@@ -21,6 +27,6 @@ echo CONFIG_VERSION_NUMBER=\"`cat release.tag`\" >.build_x/env
 
 _EXIT=$?
 [ "x$_EXIT" = "x0" ] || {
-	make V=s >>../make.log 2>&1
+	make -j1 V=s 2>&1 | tee ../make.log
 	exit $_EXIT
 }

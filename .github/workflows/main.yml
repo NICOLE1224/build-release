@@ -59,7 +59,7 @@ jobs:
         cp release.tag x-wrt/
         cd x-wrt
         echo -e "$(nproc) thread build."
-        TARGET=mediatek-filogic sh build.sh $(nproc)
+        TARGET=mediatek-filogic-tenda-be12-pro sh build.sh $(nproc)
 
     - name : Upload make.log if failure
       uses: actions/upload-artifact@v4

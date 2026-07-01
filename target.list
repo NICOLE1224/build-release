@@ -7,6 +7,7 @@ TARGET=sunxi-cortexa7
 TARGET=bcm27xx-bcm2710
 TARGET=mediatek-mt7622
 TARGET=mediatek-filogic
+TARGET=mediatek-filogic-tenda-be12-pro
 TARGET=qualcommax-ipq807x
 TARGET=bcm27xx-bcm2711
 TARGET=bcm53xx-generic

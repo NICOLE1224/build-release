@@ -12,13 +12,16 @@ The custom build:
   `luci-app-mosdns` in the Tenda BE12 Pro image;
 - pins HomeProxy, MosDNS, and v2ray-geodata source revisions in
   `prepare-custom-packages.sh`;
-- builds the `mediatek-filogic` target on GitHub Actions.
+- builds only the Tenda BE12 Pro profile instead of every
+  `mediatek-filogic` device;
+- disables preselected module packages and lets `make defconfig` restore
+  only the dependencies required by the BE12 Pro image.
 
 Trigger a build from a clone of this repository:
 
 ```sh
 git switch tenda-be12-pro
-sh update-tags.sh mediatek-filogic
+sh update-tags.sh mediatek-filogic-tenda-be12-pro
 ```
 
 Alternatively, open the repository's **Actions** page, select the workflow,
