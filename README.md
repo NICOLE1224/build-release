@@ -2,9 +2,10 @@
 
 ## NICOLE1224 Tenda BE12 Pro build
 
-This fork builds the `tenda-be12-pro` branch from
-`NICOLE1224/x-wrt`. That branch uses the matching
-`NICOLE1224/com.x-wrt` feed branch.
+This fork builds the `tenda-be12-pro-26.04_b202606301807` branch from
+`NICOLE1224/x-wrt`. It is based on the upstream
+`26.04_b202606301807` tag, pins the upstream feeds to the same tag, and
+uses the matching versioned `NICOLE1224/com.x-wrt` feed branch.
 
 The custom build:
 
