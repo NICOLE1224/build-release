@@ -21,12 +21,13 @@ The custom build:
 Trigger a build from a clone of this repository:
 
 ```sh
-git switch tenda-be12-pro
+git switch tenda-be12-pro-26.04_b202606301807
 sh update-tags.sh mediatek-filogic-tenda-be12-pro
 ```
 
 Alternatively, open the repository's **Actions** page, select the workflow,
-and use **Run workflow** on the `tenda-be12-pro` branch.
+and use **Run workflow** on the
+`tenda-be12-pro-26.04_b202606301807` branch.
 
 The downloadable artifact is named
 `x-wrt-tenda-be12-pro=mediatek-filogic`. Select the file containing
