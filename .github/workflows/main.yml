@@ -18,6 +18,9 @@ on:
 #  watch:
 #    types: [started]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'release:')
@@ -43,7 +46,7 @@ jobs:
           /usr/share/dotnet \
           /etc/mysql \
           /etc/php
-        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev lib32gcc-s1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
+        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zip zlib1g-dev lib32gcc-s1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
         sudo -E apt-get clean
         sudo rm -rf /var/lib/apt/lists/*
         df -h /
@@ -80,3 +83,25 @@ jobs:
       with:
         name: x-wrt-tenda-be12-pro=mediatek-filogic
         path: x-wrt/rom/
+
+    - name: Prepare release assets
+      id: release_assets
+      run: |
+        release_tag="$(cat release.tag)"
+        asset_name="x-wrt-tenda-be12-pro=mediatek-filogic-${release_tag}.zip"
+        cd x-wrt/rom
+        zip -r "../../${asset_name}" .
+        cd ../..
+        sha256sum "${asset_name}" >"${asset_name}.sha256"
+        echo "release_tag=${release_tag}" >>"${GITHUB_OUTPUT}"
+        echo "asset_name=${asset_name}" >>"${GITHUB_OUTPUT}"
+
+    - name: Publish release assets
+      uses: ncipollo/release-action@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ steps.release_assets.outputs.release_tag }}
+        name: X-WRT BE12 Pro ${{ steps.release_assets.outputs.release_tag }}
+        artifacts: ${{ steps.release_assets.outputs.asset_name }},${{ steps.release_assets.outputs.asset_name }}.sha256
+        allowUpdates: true
+        replacesArtifacts: true

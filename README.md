@@ -33,6 +33,10 @@ The downloadable artifact is named
 `x-wrt-tenda-be12-pro=mediatek-filogic`. Select the file containing
 `tenda_be12-pro` from the extracted artifact.
 
+Successful builds also publish a GitHub Release asset named
+`x-wrt-tenda-be12-pro=mediatek-filogic-<release.tag>.zip`, plus a matching
+`.sha256` checksum file. The release tag is read from `release.tag`.
+
 ## Upstream instructions
 
 
