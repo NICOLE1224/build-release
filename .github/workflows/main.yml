@@ -175,7 +175,7 @@ jobs:
       id: release_assets
       run: |
         release_tag="${{ steps.build_source.outputs.release_tag }}"
-        asset_name="x-wrt-tenda-be12-pro=mediatek-filogic-${release_tag}.zip"
+        asset_name="x-wrt-tenda-be12-pro.mediatek-filogic-${release_tag}.zip"
         cd x-wrt/rom
         zip -r "../../${asset_name}" .
         cd ../..
