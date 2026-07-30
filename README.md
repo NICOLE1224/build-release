@@ -37,6 +37,26 @@ Successful builds also publish a GitHub Release asset named
 `x-wrt-tenda-be12-pro=mediatek-filogic-<release.tag>.zip`, plus a matching
 `.sha256` checksum file. The release tag is read from `release.tag`.
 
+## Automatic tagged builds
+
+`NICOLE1224/x-wrt:tenda-be12-pro` owns upstream synchronization. It only syncs
+the branch and pushes the matching release tag in `NICOLE1224/x-wrt`.
+
+This repository checks `NICOLE1224/x-wrt` tags hourly. When it finds a newer
+synced tag matching `N.N_bYYYYMMDDHHMM`, it builds that tag, publishes firmware
+release assets with the same version, and records the built tag in
+`release.tag` after a successful publish.
+
+Both repositories must allow workflow write access:
+
+1. Open **Settings** -> **Actions** -> **General**.
+2. Set **Workflow permissions** to **Read and write permissions**.
+3. Save the setting.
+
+To build a tag manually, open **Actions** -> this workflow -> **Run workflow**
+on the `tenda-be12-pro` branch, set `release_tag` and leave `source_ref` empty
+to build the same tag from `NICOLE1224/x-wrt`.
+
 ## Upstream instructions
 
 

@@ -6,31 +6,111 @@
 
 name: x-wrt-tenda-be12-pro=mediatek-filogic
 
-on: 
+on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Firmware release tag. Empty uses release.tag from this repository.'
+        required: false
+        type: string
+      source_ref:
+        description: 'NICOLE1224/x-wrt branch or tag to build. Empty uses tenda-be12-pro unless release_tag is set.'
+        required: false
+        type: string
   release:
     types: [published]
   push:
     branches:
       - tenda-be12-pro
-#  schedule:
-#    - cron: 0 8 * * 5
+  schedule:
+    - cron: '17 * * * *'
 #  watch:
 #    types: [started]
 
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'release:')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release' || github.event_name == 'schedule' || (github.event_name == 'push' && contains(github.event.head_commit.message, 'release:'))
     runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout
       uses: actions/checkout@v6
 
+    - name: Resolve build source
+      id: build_source
+      env:
+        INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        INPUT_SOURCE_REF: ${{ inputs.source_ref }}
+        RELEASE_EVENT_TAG: ${{ github.event.release.tag_name }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        set -eu
+
+        release_tag="${INPUT_RELEASE_TAG}"
+        source_ref="${INPUT_SOURCE_REF}"
+        current_release_tag="$(cat release.tag)"
+        should_build="true"
+        record_release_tag="false"
+
+        if [ "${EVENT_NAME}" = "schedule" ]; then
+          release_tag="$(
+            git ls-remote --tags --refs https://github.com/NICOLE1224/x-wrt.git |
+            awk -F/ '{print $3}' |
+            grep -E '^[0-9]+[.][0-9]+_b[0-9]{12}$' |
+            sort -V |
+            tail -n 1
+          )"
+          test -n "${release_tag}"
+          source_ref="${release_tag}"
+
+          newest_tag="$(
+            printf '%s\n%s\n' "${current_release_tag}" "${release_tag}" |
+            sort -V |
+            tail -n 1
+          )"
+
+          if [ "${current_release_tag}" = "${release_tag}" ] || [ "${newest_tag}" != "${release_tag}" ]; then
+            should_build="false"
+          else
+            record_release_tag="true"
+          fi
+        elif [ "${EVENT_NAME}" = "release" ] && [ -z "${release_tag}" ]; then
+          release_tag="${RELEASE_EVENT_TAG}"
+        fi
+
+        input_release_tag="${release_tag}"
+
+        if [ -z "${release_tag}" ]; then
+          release_tag="${current_release_tag}"
+        fi
+
+        if [ -z "${source_ref}" ]; then
+          if [ -n "${input_release_tag}" ] || [ "${EVENT_NAME}" = "release" ]; then
+            source_ref="${release_tag}"
+          else
+            source_ref="tenda-be12-pro"
+          fi
+        fi
+
+        printf '%s' "${release_tag}" >release.tag
+        echo "release_tag=${release_tag}" >>"${GITHUB_OUTPUT}"
+        echo "source_ref=${source_ref}" >>"${GITHUB_OUTPUT}"
+        echo "should_build=${should_build}" >>"${GITHUB_OUTPUT}"
+        echo "record_release_tag=${record_release_tag}" >>"${GITHUB_OUTPUT}"
+
+    - name: No new synced tag
+      if: steps.build_source.outputs.should_build == 'false'
+      run: echo "No new NICOLE1224/x-wrt tag to build."
+
     - name: Initialization environment
+      if: steps.build_source.outputs.should_build == 'true'
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -52,18 +132,23 @@ jobs:
         df -h /
 
     - name: Clone source code
-      run: git clone --depth 1 --branch tenda-be12-pro https://github.com/NICOLE1224/x-wrt.git
+      if: steps.build_source.outputs.should_build == 'true'
+      run: git clone --depth 1 --branch "${{ steps.build_source.outputs.source_ref }}" https://github.com/NICOLE1224/x-wrt.git
 
     - name: Update feeds
+      if: steps.build_source.outputs.should_build == 'true'
       run: cd x-wrt && ./scripts/feeds update -a
 
     - name: Install feeds
+      if: steps.build_source.outputs.should_build == 'true'
       run: cd x-wrt && ./scripts/feeds install -a
 
     - name: Add custom packages
+      if: steps.build_source.outputs.should_build == 'true'
       run: cd x-wrt && sh ../prepare-custom-packages.sh
 
     - name: Building
+      if: steps.build_source.outputs.should_build == 'true'
       run: |
         cp *.sh x-wrt/
         cp release.tag x-wrt/
@@ -73,21 +158,23 @@ jobs:
 
     - name : Upload make.log if failure
       uses: actions/upload-artifact@v4
-      if: failure()
+      if: failure() && steps.build_source.outputs.should_build == 'true'
       with:
         name: build-failure-log
         path: make.log
 
     - name : Upload artifact
+      if: steps.build_source.outputs.should_build == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: x-wrt-tenda-be12-pro=mediatek-filogic
         path: x-wrt/rom/
 
     - name: Prepare release assets
+      if: steps.build_source.outputs.should_build == 'true'
       id: release_assets
       run: |
-        release_tag="$(cat release.tag)"
+        release_tag="${{ steps.build_source.outputs.release_tag }}"
         asset_name="x-wrt-tenda-be12-pro=mediatek-filogic-${release_tag}.zip"
         cd x-wrt/rom
         zip -r "../../${asset_name}" .
@@ -97,6 +184,7 @@ jobs:
         echo "asset_name=${asset_name}" >>"${GITHUB_OUTPUT}"
 
     - name: Publish release assets
+      if: steps.build_source.outputs.should_build == 'true'
       uses: ncipollo/release-action@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -105,3 +193,19 @@ jobs:
         artifacts: ${{ steps.release_assets.outputs.asset_name }},${{ steps.release_assets.outputs.asset_name }}.sha256
         allowUpdates: true
         replacesArtifacts: true
+
+    - name: Record built release tag
+      if: steps.build_source.outputs.record_release_tag == 'true'
+      run: |
+        set -eu
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add release.tag
+
+        if git diff --cached --quiet -- release.tag; then
+          echo "release.tag already records ${{ steps.build_source.outputs.release_tag }}."
+        else
+          git commit -s -m "release: mediatek-filogic-tenda-be12-pro-${{ steps.build_source.outputs.release_tag }}"
+          git push origin HEAD:tenda-be12-pro
+        fi
