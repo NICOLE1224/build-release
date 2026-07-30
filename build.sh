@@ -2,7 +2,7 @@
 TARGET=${TARGET-x86_64}
 
 if [ "$TARGET" = "mediatek-filogic-tenda-be12-pro" ]; then
-	CFGS="config.mediatek-filogic-0"
+	CFGS="config.mediatek-filogic-be12pro-only"
 	BE12_ONLY="1"
 else
 	CFGS=`cat ./feeds/x/rom/lede/cfg.list | grep "config.$TARGET$"`

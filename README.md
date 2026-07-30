@@ -2,10 +2,10 @@
 
 ## NICOLE1224 Tenda BE12 Pro build
 
-This fork builds the `tenda-be12-pro-26.04_b202606301807` branch from
-`NICOLE1224/x-wrt`. It is based on the upstream
-`26.04_b202606301807` tag, pins the upstream feeds to the same tag, and
-uses the matching versioned `NICOLE1224/com.x-wrt` feed branch.
+This fork builds the long-lived `tenda-be12-pro` branch from
+`NICOLE1224/x-wrt`. The branch pins the upstream feeds to the selected
+upstream release tag and uses the matching long-lived
+`NICOLE1224/com.x-wrt` `tenda-be12-pro` feed branch.
 
 The custom build:
 
@@ -21,13 +21,13 @@ The custom build:
 Trigger a build from a clone of this repository:
 
 ```sh
-git switch tenda-be12-pro-26.04_b202606301807
+git switch tenda-be12-pro
 sh update-tags.sh mediatek-filogic-tenda-be12-pro
 ```
 
 Alternatively, open the repository's **Actions** page, select the workflow,
 and use **Run workflow** on the
-`tenda-be12-pro-26.04_b202606301807` branch.
+`tenda-be12-pro` branch.
 
 The downloadable artifact is named
 `x-wrt-tenda-be12-pro=mediatek-filogic`. Select the file containing
