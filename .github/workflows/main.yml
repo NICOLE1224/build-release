@@ -42,6 +42,9 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6
+      with:
+        ref: tenda-be12-pro
+        fetch-depth: 0
 
     - name: Resolve build source
       id: build_source
@@ -199,13 +202,22 @@ jobs:
       run: |
         set -eu
 
+        release_tag="${{ steps.build_source.outputs.release_tag }}"
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add release.tag
 
-        if git diff --cached --quiet -- release.tag; then
-          echo "release.tag already records ${{ steps.build_source.outputs.release_tag }}."
-        else
-          git commit -s -m "release: mediatek-filogic-tenda-be12-pro-${{ steps.build_source.outputs.release_tag }}"
-          git push origin HEAD:tenda-be12-pro
+        # The scheduled event may have waited behind a long-running build. Refresh
+        # the branch before recording the tag so an older event SHA cannot race a
+        # previous run that already updated release.tag.
+        git restore --source=HEAD --staged --worktree release.tag
+        git pull --ff-only origin tenda-be12-pro
+
+        if [ "$(cat release.tag)" = "${release_tag}" ]; then
+          echo "release.tag already records ${release_tag}."
+          exit 0
         fi
+
+        printf '%s' "${release_tag}" >release.tag
+        git add release.tag
+        git commit -s -m "release: mediatek-filogic-tenda-be12-pro-${release_tag}"
+        git push origin HEAD:tenda-be12-pro
