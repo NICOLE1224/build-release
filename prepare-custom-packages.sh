@@ -31,3 +31,22 @@ clone_pinned \
 	https://github.com/sbwml/v2ray-geodata.git \
 	2e3845caae172326f02b3406048c7a3613f3dee5 \
 	package/custom/v2ray-geodata
+
+sed -i \
+	-e 's|^GEOIP_URL:=.*|GEOIP_URL:=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.dat|' \
+	-e 's|^GEOSITE_URL:=.*|GEOSITE_URL:=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat|' \
+	package/custom/v2ray-geodata/Makefile
+
+sed -i \
+	-e 's|let geoip_url = mirror + "https://github.com/Loyalsoldier/geoip/releases/latest/download/" + geoip_type + ".dat";|let geoip_url = mirror + "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.dat";|' \
+	-e 's|let geosite_url = mirror + "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat";|let geosite_url = mirror + "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat";|' \
+	package/custom/mosdns/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc
+
+grep -Fq 'GEOIP_URL:=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.dat' \
+	package/custom/v2ray-geodata/Makefile
+grep -Fq 'GEOSITE_URL:=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat' \
+	package/custom/v2ray-geodata/Makefile
+grep -Fq 'let geoip_url = mirror + "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.dat";' \
+	package/custom/mosdns/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc
+grep -Fq 'let geosite_url = mirror + "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat";' \
+	package/custom/mosdns/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc
