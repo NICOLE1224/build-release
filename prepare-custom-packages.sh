@@ -17,10 +17,33 @@ if [ -L package/feeds/packages/v2ray-geodata ]; then
 	rm package/feeds/packages/v2ray-geodata
 fi
 
-clone_pinned \
-	https://github.com/immortalwrt/homeproxy.git \
-	e8b8ebcfbdd1759c5f7f323b5a9d32b5b5434954 \
-	package/custom/luci-app-homeproxy
+sing_box_makefile="feeds/packages/net/sing-box/Makefile"
+be12_make_script="feeds/x/rom/lede/make.sh"
+be12_config="feeds/x/rom/lede/config.mediatek-filogic-be12pro-only"
+
+sed -i \
+	-e 's/^PKG_VERSION:=.*/PKG_VERSION:=1.14.0-rc.4/' \
+	-e 's/^PKG_HASH:=.*/PKG_HASH:=7d30e1c5fd812cc2b43d88802632126cd969490381f7754d6739fd5810f67c68/' \
+	"$sing_box_makefile"
+
+grep -Fqx 'PKG_VERSION:=1.14.0-rc.4' "$sing_box_makefile"
+grep -Fqx 'PKG_HASH:=7d30e1c5fd812cc2b43d88802632126cd969490381f7754d6739fd5810f67c68' \
+	"$sing_box_makefile"
+
+sed -i \
+	-e 's#s/luci-app-openclash/luci-app-homeproxy luci-app-mosdns/#s/luci-app-openclash/sing-box luci-app-mosdns/#' \
+	-e 's/be12_excluded_packages="kmod-mt7915e kmod-usb-core kmod-usb-common"/be12_excluded_packages="kmod-mt7915e kmod-usb-core kmod-usb-common luci-app-homeproxy"/' \
+	"$be12_make_script"
+
+grep -Fq 's/luci-app-openclash/sing-box luci-app-mosdns/' "$be12_make_script"
+grep -Fq 'be12_excluded_packages="kmod-mt7915e kmod-usb-core kmod-usb-common luci-app-homeproxy"' \
+	"$be12_make_script"
+
+sed -i \
+	's/^CONFIG_PACKAGE_luci-app-homeproxy=y$/# CONFIG_PACKAGE_luci-app-homeproxy is not set/' \
+	"$be12_config"
+
+grep -Fqx '# CONFIG_PACKAGE_luci-app-homeproxy is not set' "$be12_config"
 
 clone_pinned \
 	https://github.com/sbwml/luci-app-mosdns.git \
