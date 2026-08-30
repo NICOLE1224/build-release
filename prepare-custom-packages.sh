@@ -24,7 +24,7 @@ be12_config="feeds/x/rom/lede/config.mediatek-filogic-be12pro-only"
 sed -i \
 	-e 's/^PKG_VERSION:=.*/PKG_VERSION:=1.14.0_rc4\nPKG_UPSTREAM_VERSION:=1.14.0-rc.4/' \
 	-e "s/^PKG_SOURCE:=.*/PKG_SOURCE:=\$(PKG_NAME)-\$(PKG_UPSTREAM_VERSION).tar.gz/" \
-	-e "s#^PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=https://codeload.github.com/SagerNet/sing-box/tar.gz/v\$(PKG_UPSTREAM_VERSION)?#" \
+	-e "s#^PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=https://codeload.github.com/SagerNet/sing-box/tar.gz/v\$(PKG_UPSTREAM_VERSION)?\nPKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)-\$(PKG_UPSTREAM_VERSION)#" \
 	-e 's/^PKG_HASH:=.*/PKG_HASH:=7d30e1c5fd812cc2b43d88802632126cd969490381f7754d6739fd5810f67c68/' \
 	-e "s#^GO_PKG_LDFLAGS_X:=.*#GO_PKG_LDFLAGS_X:=\$(GO_PKG)/constant.Version=\$(PKG_UPSTREAM_VERSION)#" \
 	"$sing_box_makefile"
@@ -33,6 +33,8 @@ grep -Fqx 'PKG_VERSION:=1.14.0_rc4' "$sing_box_makefile"
 grep -Fqx 'PKG_UPSTREAM_VERSION:=1.14.0-rc.4' "$sing_box_makefile"
 grep -Fqx "PKG_SOURCE:=\$(PKG_NAME)-\$(PKG_UPSTREAM_VERSION).tar.gz" "$sing_box_makefile"
 grep -Fqx "PKG_SOURCE_URL:=https://codeload.github.com/SagerNet/sing-box/tar.gz/v\$(PKG_UPSTREAM_VERSION)?" \
+	"$sing_box_makefile"
+grep -Fqx "PKG_BUILD_DIR:=\$(BUILD_DIR)/\$(PKG_NAME)-\$(PKG_UPSTREAM_VERSION)" \
 	"$sing_box_makefile"
 grep -Fqx 'PKG_HASH:=7d30e1c5fd812cc2b43d88802632126cd969490381f7754d6739fd5810f67c68' \
 	"$sing_box_makefile"
