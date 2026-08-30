@@ -42,18 +42,26 @@ grep -Fqx "GO_PKG_LDFLAGS_X:=\$(GO_PKG)/constant.Version=\$(PKG_UPSTREAM_VERSION
 	"$sing_box_makefile"
 
 sed -i \
-	-e 's#s/luci-app-openclash/luci-app-homeproxy luci-app-mosdns/#s/luci-app-openclash/sing-box luci-app-mosdns/#' \
+	-e 's#s/luci-app-openclash/luci-app-homeproxy luci-app-mosdns/#{ s/luci-app-openclash/sing-box luci-app-mosdns/; s/luci-app-homeproxy/sing-box/; }#' \
 	-e 's/be12_excluded_packages="kmod-mt7915e kmod-usb-core kmod-usb-common"/be12_excluded_packages="kmod-mt7915e kmod-usb-core kmod-usb-common luci-app-homeproxy"/' \
 	"$be12_make_script"
 
-grep -Fq 's/luci-app-openclash/sing-box luci-app-mosdns/' "$be12_make_script"
+grep -Fq '{ s/luci-app-openclash/sing-box luci-app-mosdns/; s/luci-app-homeproxy/sing-box/; }' \
+	"$be12_make_script"
 grep -Fq 'be12_excluded_packages="kmod-mt7915e kmod-usb-core kmod-usb-common luci-app-homeproxy"' \
 	"$be12_make_script"
 
 sed -i \
-	's/^CONFIG_PACKAGE_luci-app-homeproxy=y$/# CONFIG_PACKAGE_luci-app-homeproxy is not set/' \
+	-e '/^CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_tenda_be12-pro=/ s/luci-app-homeproxy/sing-box/' \
+	-e 's/^CONFIG_PACKAGE_luci-app-homeproxy=y$/# CONFIG_PACKAGE_luci-app-homeproxy is not set/' \
 	"$be12_config"
 
+grep -Eq '^CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_tenda_be12-pro=.*sing-box' \
+	"$be12_config"
+if grep -Eq '^CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_tenda_be12-pro=.*luci-app-homeproxy' \
+	"$be12_config"; then
+	exit 1
+fi
 grep -Fqx '# CONFIG_PACKAGE_luci-app-homeproxy is not set' "$be12_config"
 
 clone_pinned \
