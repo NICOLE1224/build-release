@@ -1,0 +1,38 @@
+diff --git a/Makefile b/Makefile
+index bb4da09..6afd23d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -8,6 +8,6 @@ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=v2ray-geodata
+-PKG_VERSION:=$(shell date "+%Y.%m.%d")
++PKG_VERSION:=2026.09.10
+ PKG_RELEASE:=1
+ 
+ PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
+@@ -37,16 +37,19 @@ define Package/v2ray-geosite
+   LICENSE:=GPL-3.0
+ endef
+ 
+-GEOIP_URL:=https://github.com/Loyalsoldier/geoip/releases/latest/download/geoip-only-cn-private.dat
+-GEOSITE_URL:=https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
++META_RULES_REVISION:=00d18d8f9eec132181f3968d10d1f608ff382ff5
++GEOIP_URL:=https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/$(META_RULES_REVISION)/geoip-lite.dat
++GEOSITE_URL:=https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/$(META_RULES_REVISION)/geosite.dat
++GEOIP_HASH:=dab157bbaed2f7fabbfbac973bd7d7f9e78de8d8c897f770649ac58469ca5a33
++GEOSITE_HASH:=83e5023cfc134700fd373d800880c62c9cb1e8b97aef59052d7779d817c27be0
+ 
+ define Build/Compile
+ 	( \
+ 		pushd $(PKG_BUILD_DIR) ; \
+-		curl -L $(GEOIP_URL) -o geoip.dat --progress-bar ; \
+-		curl -L $(GEOSITE_URL) -o geosite.dat --progress-bar ; \
+-		[ "$(curl -sL $(GEOIP_URL).sha256sum | awk '{print $1}')" != "$(sha256sum geoip.dat | awk '{print $1}')" ] && exit 1 ; \
+-		[ "$(curl -sL $(GEOSITE_URL).sha256sum | awk '{print $1}')" != "$(sha256sum geosite.dat | awk '{print $1}')" ] && exit 1 ; \
++		curl --fail --location --retry 3 $(GEOIP_URL) -o geoip.dat --progress-bar ; \
++		curl --fail --location --retry 3 $(GEOSITE_URL) -o geosite.dat --progress-bar ; \
++		echo "$(GEOIP_HASH)  geoip.dat" | sha256sum -c - ; \
++		echo "$(GEOSITE_HASH)  geosite.dat" | sha256sum -c - ; \
+ 		popd ; \
+ 	)
+ endef

@@ -1,223 +1,181 @@
-#=================================================
-#   Description: Build X-WRT using GitHub Actions
-#   Lisence: MIT
-#   Author: ptpt52
-#=================================================
-
-name: x-wrt-tenda-be12-pro=mediatek-filogic
+name: x-wrt-tenda-be12-pro
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Firmware release tag. Empty uses release.tag from this repository.'
+        description: Official x-wrt/x-wrt release tag; empty selects the newest tag.
         required: false
         type: string
-      source_ref:
-        description: 'NICOLE1224/x-wrt branch or tag to build. Empty uses tenda-be12-pro unless release_tag is set.'
-        required: false
-        type: string
-  release:
-    types: [published]
-  push:
-    branches:
-      - tenda-be12-pro
   schedule:
     - cron: '17 * * * *'
-#  watch:
-#    types: [started]
 
 permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release' || github.event_name == 'schedule' || (github.event_name == 'push' && contains(github.event.head_commit.message, 'release:'))
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v6
-      with:
-        ref: tenda-be12-pro
-        fetch-depth: 0
+      - name: Checkout build definition
+        uses: actions/checkout@v6
+        with:
+          ref: tenda-be12-pro
 
-    - name: Resolve build source
-      id: build_source
-      env:
-        INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
-        INPUT_SOURCE_REF: ${{ inputs.source_ref }}
-        RELEASE_EVENT_TAG: ${{ github.event.release.tag_name }}
-        EVENT_NAME: ${{ github.event_name }}
-      run: |
-        set -eu
+      - name: Resolve official release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -eu
 
-        release_tag="${INPUT_RELEASE_TAG}"
-        source_ref="${INPUT_SOURCE_REF}"
-        current_release_tag="$(cat release.tag)"
-        should_build="true"
-        record_release_tag="false"
-
-        if [ "${EVENT_NAME}" = "schedule" ]; then
-          release_tag="$(
-            git ls-remote --tags --refs https://github.com/NICOLE1224/x-wrt.git |
-            awk -F/ '{print $3}' |
-            grep -E '^[0-9]+[.][0-9]+_b[0-9]{12}$' |
-            sort -V |
-            tail -n 1
-          )"
-          test -n "${release_tag}"
-          source_ref="${release_tag}"
-
-          newest_tag="$(
-            printf '%s\n%s\n' "${current_release_tag}" "${release_tag}" |
-            sort -V |
-            tail -n 1
-          )"
-
-          if [ "${current_release_tag}" = "${release_tag}" ] || [ "${newest_tag}" != "${release_tag}" ]; then
-            should_build="false"
-          else
-            record_release_tag="true"
+          release_tag="${INPUT_RELEASE_TAG}"
+          if [ -z "${release_tag}" ]; then
+            release_tag="$(
+              git ls-remote --tags --refs https://github.com/x-wrt/x-wrt.git |
+                awk -F/ '{print $3}' |
+                grep -E '^[0-9]+[.][0-9]+_b[0-9]{12}$' |
+                sort -V |
+                tail -n 1
+            )"
           fi
-        elif [ "${EVENT_NAME}" = "release" ] && [ -z "${release_tag}" ]; then
-          release_tag="${RELEASE_EVENT_TAG}"
-        fi
 
-        input_release_tag="${release_tag}"
+          printf '%s\n' "${release_tag}" |
+            grep -Eq '^[0-9]+[.][0-9]+_b[0-9]{12}$'
 
-        if [ -z "${release_tag}" ]; then
-          release_tag="${current_release_tag}"
-        fi
+          tag_refs="$(
+            git ls-remote --tags https://github.com/x-wrt/x-wrt.git \
+              "refs/tags/${release_tag}" "refs/tags/${release_tag}^{}"
+          )"
+          source_commit="$(
+            printf '%s\n' "${tag_refs}" |
+              awk '$2 ~ /\^\{\}$/ { peeled = $1 } $2 !~ /\^\{\}$/ { tag = $1 }
+                   END { if (peeled != "") print peeled; else print tag }'
+          )"
+          test -n "${source_commit}"
 
-        if [ -z "${source_ref}" ]; then
-          if [ -n "${input_release_tag}" ] || [ "${EVENT_NAME}" = "release" ]; then
-            source_ref="${release_tag}"
-          else
-            source_ref="tenda-be12-pro"
+          sing_box_tag="$(
+            gh api -H 'X-GitHub-Api-Version: 2022-11-28' \
+              repos/SagerNet/sing-box/releases/latest \
+              --jq 'select(.draft == false and .prerelease == false) | .tag_name'
+          )"
+          printf '%s\n' "${sing_box_tag}" |
+            grep -Eq '^v[0-9]+[.][0-9]+[.][0-9]+$'
+          sing_box_version="${sing_box_tag#v}"
+
+          should_build=true
+          if [ "${EVENT_NAME}" = schedule ]; then
+            manifest_dir="$(mktemp -d)"
+            if gh release download "${release_tag}" \
+                 --repo "${GITHUB_REPOSITORY}" \
+                 --pattern build-manifest.txt \
+                 --dir "${manifest_dir}" >/dev/null 2>&1 &&
+               grep -Fq "sing-box latest-stable ${sing_box_version} " \
+                 "${manifest_dir}/build-manifest.txt"; then
+              should_build=false
+            fi
           fi
-        fi
 
-        printf '%s' "${release_tag}" >release.tag
-        echo "release_tag=${release_tag}" >>"${GITHUB_OUTPUT}"
-        echo "source_ref=${source_ref}" >>"${GITHUB_OUTPUT}"
-        echo "should_build=${should_build}" >>"${GITHUB_OUTPUT}"
-        echo "record_release_tag=${record_release_tag}" >>"${GITHUB_OUTPUT}"
+          {
+            echo "release_tag=${release_tag}"
+            echo "source_commit=${source_commit}"
+            echo "sing_box_tag=${sing_box_tag}"
+            echo "should_build=${should_build}"
+          } >>"${GITHUB_OUTPUT}"
 
-    - name: No new synced tag
-      if: steps.build_source.outputs.should_build == 'false'
-      run: echo "No new NICOLE1224/x-wrt tag to build."
+      - name: Report existing release
+        if: steps.release.outputs.should_build == 'false'
+        run: echo "Release already contains the current X-WRT and Sing-box versions."
 
-    - name: Initialization environment
-      if: steps.build_source.outputs.should_build == 'true'
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        echo "Deleting files, please wait ..."
-        sudo -E apt-get update
-        sudo -E apt-get -y install git
-        sudo rm -rf \
-          /opt/hostedtoolcache \
-          /opt/ghc \
-          /usr/local/.ghcup \
-          /usr/local/lib/android \
-          /usr/share/swift \
-          /usr/share/dotnet \
-          /etc/mysql \
-          /etc/php
-        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zip zlib1g-dev lib32gcc-s1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
-        sudo -E apt-get clean
-        sudo rm -rf /var/lib/apt/lists/*
-        df -h /
+      - name: Initialize environment
+        if: steps.release.outputs.should_build == 'true'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt-get update
+          sudo -E apt-get -y install git
+          sudo rm -rf \
+            /opt/hostedtoolcache \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/lib/android \
+            /usr/share/swift \
+            /usr/share/dotnet \
+            /etc/mysql \
+            /etc/php
+          sudo -E apt-get -y install build-essential asciidoc binutils bzip2 curl gawk gettext git jq libncurses5-dev libz-dev patch unzip zip zlib1g-dev lib32gcc-s1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
+          sudo -E apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          df -h /
 
-    - name: Clone source code
-      if: steps.build_source.outputs.should_build == 'true'
-      run: git clone --depth 1 --branch "${{ steps.build_source.outputs.source_ref }}" https://github.com/NICOLE1224/x-wrt.git
+      - name: Clone exact official source
+        if: steps.release.outputs.should_build == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          EXPECTED_COMMIT: ${{ steps.release.outputs.source_commit }}
+        run: |
+          git clone --depth 1 --branch "${RELEASE_TAG}" https://github.com/x-wrt/x-wrt.git
+          test "$(git -C x-wrt rev-parse HEAD)" = "${EXPECTED_COMMIT}"
 
-    - name: Update feeds
-      if: steps.build_source.outputs.should_build == 'true'
-      run: cd x-wrt && ./scripts/feeds update -a
+      - name: Install matching official feeds
+        if: steps.release.outputs.should_build == 'true'
+        run: |
+          cd x-wrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
-    - name: Install feeds
-      if: steps.build_source.outputs.should_build == 'true'
-      run: cd x-wrt && ./scripts/feeds install -a
+      - name: Apply Tenda BE12 Pro profile
+        if: steps.release.outputs.should_build == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          sh prepare-custom-packages.sh x-wrt
+          sh profiles/tenda-be12-pro/configure.sh x-wrt "${RELEASE_TAG}"
+          sh profiles/tenda-be12-pro/write-provenance.sh \
+            x-wrt "${RELEASE_TAG}" build-manifest.txt
+          cp x-wrt/.config x-wrt/feeds/x/rom/lede/config.nico-tenda-be12-pro
 
-    - name: Add custom packages
-      if: steps.build_source.outputs.should_build == 'true'
-      run: cd x-wrt && sh ../prepare-custom-packages.sh
+      - name: Build firmware
+        if: steps.release.outputs.should_build == 'true'
+        env:
+          CONFIG_VERSION_NUMBER: ${{ steps.release.outputs.release_tag }}
+        run: |
+          cp build.sh upload.sh x-wrt/
+          cd x-wrt
+          bash build.sh "$(nproc)"
 
-    - name: Building
-      if: steps.build_source.outputs.should_build == 'true'
-      run: |
-        cp *.sh x-wrt/
-        cp release.tag x-wrt/
-        cd x-wrt
-        echo -e "$(nproc) thread build."
-        TARGET=mediatek-filogic-tenda-be12-pro sh build.sh $(nproc)
+      - name: Upload failure log
+        uses: actions/upload-artifact@v4
+        if: failure() && steps.release.outputs.should_build == 'true'
+        with:
+          name: build-failure-log
+          path: make.log
 
-    - name : Upload make.log if failure
-      uses: actions/upload-artifact@v4
-      if: failure() && steps.build_source.outputs.should_build == 'true'
-      with:
-        name: build-failure-log
-        path: make.log
+      - name: Upload firmware artifact
+        if: steps.release.outputs.should_build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: x-wrt-tenda-be12-pro=mediatek-filogic
+          path: |
+            x-wrt/rom/
+            build-manifest.txt
 
-    - name : Upload artifact
-      if: steps.build_source.outputs.should_build == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: x-wrt-tenda-be12-pro=mediatek-filogic
-        path: x-wrt/rom/
-
-    - name: Prepare release assets
-      if: steps.build_source.outputs.should_build == 'true'
-      id: release_assets
-      run: |
-        release_tag="${{ steps.build_source.outputs.release_tag }}"
-        asset_name="x-wrt-tenda-be12-pro.mediatek-filogic-${release_tag}.zip"
-        cd x-wrt/rom
-        zip -r "../../${asset_name}" .
-        cd ../..
-        sha256sum "${asset_name}" >"${asset_name}.sha256"
-        echo "release_tag=${release_tag}" >>"${GITHUB_OUTPUT}"
-        echo "asset_name=${asset_name}" >>"${GITHUB_OUTPUT}"
-
-    - name: Publish release assets
-      if: steps.build_source.outputs.should_build == 'true'
-      uses: ncipollo/release-action@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        tag: ${{ steps.release_assets.outputs.release_tag }}
-        name: X-WRT BE12 Pro ${{ steps.release_assets.outputs.release_tag }}
-        artifacts: ${{ steps.release_assets.outputs.asset_name }},${{ steps.release_assets.outputs.asset_name }}.sha256
-        allowUpdates: true
-        replacesArtifacts: true
-
-    - name: Record built release tag
-      if: steps.build_source.outputs.record_release_tag == 'true'
-      run: |
-        set -eu
-
-        release_tag="${{ steps.build_source.outputs.release_tag }}"
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-        # The scheduled event may have waited behind a long-running build. Refresh
-        # the branch before recording the tag so an older event SHA cannot race a
-        # previous run that already updated release.tag.
-        git restore --source=HEAD --staged --worktree release.tag
-        git pull --ff-only origin tenda-be12-pro
-
-        if [ "$(cat release.tag)" = "${release_tag}" ]; then
-          echo "release.tag already records ${release_tag}."
-          exit 0
-        fi
-
-        printf '%s' "${release_tag}" >release.tag
-        git add release.tag
-        git commit -s -m "release: mediatek-filogic-tenda-be12-pro-${release_tag}"
-        git push origin HEAD:tenda-be12-pro
+      - name: Publish release assets
+        if: steps.release.outputs.should_build == 'true'
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.release.outputs.release_tag }}
+          name: X-WRT BE12 Pro ${{ steps.release.outputs.release_tag }}
+          artifacts: x-wrt/rom/*.bin,x-wrt/rom/sha256sums.txt,build-manifest.txt
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true

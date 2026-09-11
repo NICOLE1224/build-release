@@ -1,0 +1,22 @@
+diff --git a/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc b/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc
+index 3b60669..0e72f81 100755
+--- a/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc
++++ b/luci-app-mosdns/root/usr/share/mosdns/mosdns.uc
+@@ -188,7 +188,7 @@ function update_geodat() {
+ 	exec_sys(`mkdir -p "${v2dat_dir}"`);
+ 
+ 	let geoip_updated = false;
+-	let geoip_url = mirror + "https://github.com/Loyalsoldier/geoip/releases/latest/download/" + geoip_type + ".dat";
++	let geoip_url = mirror + "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.dat";
+ 
+ 	print(`Downloading ${geoip_url}.sha256sum\n`);
+ 	stdout.flush();
+@@ -223,7 +223,7 @@ function update_geodat() {
+ 	}
+ 
+ 	let geosite_updated = false;
+-	let geosite_url = mirror + "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat";
++	let geosite_url = mirror + "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat";
+ 
+ 	print(`Downloading ${geosite_url}.sha256sum\n`);
+ 	stdout.flush();

@@ -1,0 +1,7 @@
+# These selections must survive make defconfig.
+luci-app-mosdns
+mosdns
+sing-box
+v2dat
+v2ray-geoip
+v2ray-geosite

@@ -1,0 +1,6 @@
+# These packages must not be selected as built-in or modules.
+kmod-mt7915e
+kmod-usb-common
+kmod-usb-core
+luci-app-homeproxy
+luci-app-openclash

@@ -1,22 +1,21 @@
+#!/bin/sh
+set -eu
 
-test -n "$1" || {
-	echo "sh $0 <target>"
+release_tag=${1:-}
+if [ -z "$release_tag" ]; then
+	release_tag=$(
+		git ls-remote --tags --refs https://github.com/x-wrt/x-wrt.git |
+			awk -F/ '{print $3}' |
+			grep -E '^[0-9]+[.][0-9]+_b[0-9]{12}$' |
+			sort -V |
+			tail -n 1
+	)
+fi
+
+printf '%s\n' "$release_tag" | grep -Eq '^[0-9]+[.][0-9]+_b[0-9]{12}$' || {
+	echo "Invalid X-WRT release tag: $release_tag" >&2
 	exit 1
 }
 
-cat target.list | while read target; do
-	test -n "$1" && {
-		echo $target | grep -q "$1$" || continue
-	}
-	TAG=$(cat release.tag)$(echo $target | sed 's/TARGET//')
-	echo push $TAG
-	sleep 2
-
-	(sed -i "s/name: x-wrt-.*=.*/name: x-wrt-$TAG/g" .github/workflows/main.yml 2>/dev/null || \
-	 sed -i '' "s/name: x-wrt-.*=.*/name: x-wrt-$TAG/g" .github/workflows/main.yml 2>/dev/null) &&
-	(sed -i "s/TARGET=.* sh /$target sh /" .github/workflows/main.yml 2>/dev/null || \
-	 sed -i '' "s/TARGET=.* sh /$target sh /" .github/workflows/main.yml 2>/dev/null) &&
-	git commit --signoff -am "release: $TAG" &&
-	git push origin HEAD ||
-	exit 1
-done
+gh workflow run main.yml --ref tenda-be12-pro -f "release_tag=$release_tag"
+echo "Requested GitHub Actions build for $release_tag."
