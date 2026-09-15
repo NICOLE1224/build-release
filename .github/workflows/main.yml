@@ -153,7 +153,7 @@ jobs:
           bash build.sh "$(nproc)"
 
       - name: Upload failure log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure() && steps.release.outputs.should_build == 'true'
         with:
           name: build-failure-log
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload firmware artifact
         if: steps.release.outputs.should_build == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: x-wrt-tenda-be12-pro=mediatek-filogic
           path: |
