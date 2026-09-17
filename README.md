@@ -23,6 +23,22 @@ metadata plus resolved source hash are included in `build-manifest.txt`.
 
 ## GitHub Actions
 
+The build runs on `ubuntu-24.04`. CI installs the native compiler toolchain,
+ncurses/OpenSSL/ELF/zlib headers, download and compression tools, and the
+Python development headers, setuptools and SWIG required by U-Boot. It runs
+`make prereq` after applying the profile to check the selected source and
+packages before compiling firmware.
+Checkout and artifact uploads use the v7 GitHub Actions; release publishing
+uses the maintained `ncipollo/release-action@v1` major tag.
+
+The dependency list uses Noble's `libncurses-dev` and `pkgconf`. It omits
+duplicate/alias packages (`git-core`, `libz-dev`), 32-bit multilib packages,
+and unrelated mail, documentation, JavaScript, VM and executable-packing tools.
+X-WRT builds its own autotools, device-tree compiler and image/archive tools,
+so CI does not install separate copies of those tools or the legacy
+`p7zip`/`p7zip-full` packages. Compiler and Python versions come from Ubuntu's
+24.04 repositories; no legacy compiler or Python version is pinned.
+
 Run **Actions → x-wrt-tenda-be12-pro → Run workflow**. Leave `release_tag`
 empty to use the newest official tag, or enter a tag such as
 `26.04_b202609050853`.
