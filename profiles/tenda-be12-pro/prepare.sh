@@ -119,6 +119,7 @@ clone_pinned "$V2RAY_GEODATA_REPOSITORY" "$V2RAY_GEODATA_REVISION" \
 prepare_latest_stable_sing_box \
 	"$source_root/feeds/packages/net/sing-box/Makefile" \
 	"$source_root/.build-profile/tenda-be12-pro"
+apply_patch "$source_root/feeds/packages" "$profile_dir/patches/squeezelite-kconfig.patch"
 apply_patch "$source_root/package/custom/mosdns" "$profile_dir/patches/mosdns-geodata.patch"
 apply_patch "$source_root/package/custom/v2ray-geodata" "$profile_dir/patches/v2ray-geodata.patch"
 

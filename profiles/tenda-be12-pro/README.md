@@ -13,6 +13,10 @@ official X-WRT release tag and installing its matching feeds.
 - `write-provenance.sh` records the exact source and feed commits used by a
   build.
 
+The Squeezelite Kconfig patch puts its codec options in an independent menu.
+Guarding them with the parent package creates a recursive dependency through
+the newer FFmpeg package. The codec options still default to disabled.
+
 The MosDNS runtime updater intentionally follows MetaCubeX's `latest` release.
 Build-time geodata is instead pinned by commit and SHA-256 so rebuilding the
 same source produces the same package input.
