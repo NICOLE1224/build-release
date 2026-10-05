@@ -35,7 +35,16 @@ def configure(source: Path, tag: str, device: str) -> None:
     packages = package_lines[0].split('"')[1].split()
     packages = list(dict.fromkeys(packages + APPLICATIONS))
     required = (Path(__file__).parent / "packages.required").read_text().splitlines()
-    overrides = {f"CONFIG_PACKAGE_{package}": "y" for package in required}
+    upstream_values = dict(line.split("=", 1) for line in lines
+                           if line.startswith("CONFIG_PACKAGE_") and "=" in line)
+    # TARGET_DEVICE_PACKAGES is an image install list, not a Kconfig selection.
+    # Its packages must also be enabled for compilation. Keep them modular so
+    # per-device variants are installed only when assembling this device's image.
+    overrides = {
+        f"CONFIG_PACKAGE_{package}": "y" if upstream_values.get(f"CONFIG_PACKAGE_{package}") == "y" else "m"
+        for package in packages if not package.startswith("-")
+    }
+    overrides.update({f"CONFIG_PACKAGE_{package}": "y" for package in required})
     overrides.update({
         "CONFIG_ALL_KMODS": "n",
         "CONFIG_ALL_NONSHARED": "n",
@@ -55,8 +64,8 @@ def configure(source: Path, tag: str, device: str) -> None:
         unset = re.fullmatch(r"# (CONFIG_\S+) is not set", line)
         if key in overrides or (unset and unset[1] in overrides):
             continue
-        # Let defconfig select modules required by the chosen device, instead of
-        # carrying optional modules for other devices from the multi-device feed.
+        # Selected-device modules are restored through overrides above. Drop
+        # unrelated modules; defconfig resolves dependencies of the retained ones.
         if re.fullmatch(r"CONFIG_PACKAGE_.*=m", line):
             continue
         result.append(line)

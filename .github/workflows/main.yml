@@ -114,6 +114,7 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           DEVICE: ${{ steps.release.outputs.device }}
         run: |
+          python3 -B profiles/rax3000m/test_configure.py
           sh prepare-custom-packages.sh x-wrt
           sh profiles/rax3000m/configure.sh x-wrt "$RELEASE_TAG" "$DEVICE"
           sh profiles/rax3000m/write-provenance.sh x-wrt "$RELEASE_TAG" "$DEVICE" build-manifest.txt
