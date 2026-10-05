@@ -19,6 +19,7 @@ on:
     branches:
       - rax3000m
     paths:
+      - .gitattributes
       - .github/workflows/main.yml
       - profiles/rax3000m/**
       - build.sh
