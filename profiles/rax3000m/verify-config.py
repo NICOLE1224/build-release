@@ -18,7 +18,7 @@ def verify_install_conflicts(values: dict, requested: set, removed: set, metadat
     current = None
     conflicts = set()
     checked = 0
-    for line in metadata.read_text().splitlines():
+    for line in metadata.read_text(encoding="utf-8").splitlines():
         entry = re.fullmatch(r"\s*(?:menu)?config\s+(\S+)\s*", line)
         if entry:
             current = entry[1].removeprefix("PACKAGE_") if entry[1].startswith("PACKAGE_") else None
@@ -67,8 +67,10 @@ def verify(source: Path, device: str) -> None:
     for preferred, fallback in IMAGE_PROVIDERS.items():
         if values.get(f"CONFIG_PACKAGE_{preferred}") != "y":
             raise ValueError(f"base root filesystem must use {preferred}")
-        if values.get(f"CONFIG_PACKAGE_{fallback}") in ("y", "m") or fallback in requested:
-            raise ValueError(f"{fallback} must be disabled when using {preferred}")
+        # Kconfig may retain an unused fallback as a compiled module. Only y
+        # and the device install list put it into a root filesystem.
+        if values.get(f"CONFIG_PACKAGE_{fallback}") == "y" or fallback in requested:
+            raise ValueError(f"{fallback} must not be installed when using {preferred}")
     print(f"Verified {device}: all {len(requested)} device packages selected; {checked} rootfs conflict rules checked")
 
 

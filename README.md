@@ -60,7 +60,8 @@ does not select packages in Kconfig. After `make defconfig`, preparation checks
 all device packages before starting the build. Input and printer support
 switches are retained to satisfy the USB packages' visibility dependencies.
 The base root filesystem uses `apk-openssl` and `wpad-openssl`, matching the
-official RAX3000M image; the conflicting mbedTLS variants are disabled.
+official RAX3000M image; the conflicting mbedTLS variants are excluded from
+both root filesystems. Kconfig may still compile an unused fallback as a module.
 Preparation checks X-WRT's generated conflict rules against the base and
 device package sets after `make defconfig`.
 Unrelated module selections, all-kernel-module builds and SDK builds are omitted.

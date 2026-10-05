@@ -91,6 +91,12 @@ class DevicePackagesTest(unittest.TestCase):
             verify_config.verify_install_conflicts(values, {"example-b"}, set(), metadata)
         verify_config.verify_install_conflicts(values, {"example-b"}, {"example-a"}, metadata)
 
+    def test_unused_modular_fallback_is_not_an_install_conflict(self):
+        text = self.generate().replace("# CONFIG_PACKAGE_wpad-basic-mbedtls is not set",
+                                       "CONFIG_PACKAGE_wpad-basic-mbedtls=m")
+        (self.source / ".config").write_text(text)
+        verify_config.verify(self.source, "cmcc_rax3000m")
+
     def test_guard_requires_generated_conflict_metadata(self):
         self.generate()
         (self.source / "tmp/.config-package.in").unlink()
