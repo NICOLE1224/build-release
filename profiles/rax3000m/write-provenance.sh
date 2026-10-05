@@ -23,4 +23,6 @@ output=${4:?}
 	printf 'mosdns %s %s\n' "$MOSDNS_REVISION" "$MOSDNS_REPOSITORY"
 	printf 'vlmcsd-luci %s %s\n' "$VLMCSD_LUCI_REVISION" "$VLMCSD_LUCI_REPOSITORY"
 	printf 'vlmcsd-service %s %s\n' "$VLMCSD_SERVICE_REVISION" "$VLMCSD_SERVICE_REPOSITORY"
+	grep -E '^PKG_(VERSION|RELEASE|SOURCE_VERSION|HASH):=' \
+		"$source_root/package/custom/vlmcsd/Makefile"
 } >"$output"

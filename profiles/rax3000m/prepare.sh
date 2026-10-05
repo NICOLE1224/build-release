@@ -32,6 +32,7 @@ cp -R "$source_root/.build-profile/rax3000m/vlmcsd-service/net/vlmcsd" \
 	"$source_root/package/custom/vlmcsd"
 
 python3 "$profile_dir/adapt-vlmcsd.py" "$source_root/package/custom/luci-app-vlmcsd"
+python3 "$profile_dir/adapt-vlmcsd-service.py" "$source_root/package/custom/vlmcsd"
 patch_file="$profile_dir/patches/squeezelite-kconfig.patch"
 git -C "$source_root/feeds/packages" apply --check "$patch_file"
 git -C "$source_root/feeds/packages" apply "$patch_file"

@@ -26,6 +26,9 @@ definition runs. A CLI alternative is:
 gh workflow run main.yml --repo NICOLE1224/build-release --ref rax3000m
 ```
 
+A new push replaces an older running RAX3000M build of the same layout.
+Manual runs are queued. The BE12 Pro workflow has a separate concurrency group.
+
 Leave `release_tag` empty for the newest official tag, or specify an exact tag.
 The `device` input defaults to `cmcc_rax3000m`, the unified NAND/eMMC profile.
 For an existing installation with the corresponding U-Boot layout, select
@@ -58,6 +61,8 @@ The manifest records source, feed and custom-package revisions and the
 configuration hash. The resolved configuration is also an Actions artifact.
 A checked patch fixes the upstream Squeezelite Kconfig issue. VLMCSd's LuCI
 include, dependencies and ACL are adapted for X-WRT.
+VLMCSd's APK package version is `1113-r5`; its source remains the pinned
+`svn1113` archive with the original hash.
 
 Local Linux preparation uses the same order as CI:
 

@@ -31,7 +31,8 @@ permissions:
 
 concurrency:
   group: x-wrt-rax3000m-${{ inputs.device || 'cmcc_rax3000m' }}
-  cancel-in-progress: false
+  # A corrected push supersedes an obsolete build of the same RAX3000M layout.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   build:
@@ -135,6 +136,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: rax3000m-failure-${{ github.run_id }}
+          include-hidden-files: true
           path: |
             make.log
             x-wrt/logs/
