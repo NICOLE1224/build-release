@@ -63,6 +63,11 @@ A checked patch fixes the upstream Squeezelite Kconfig issue. VLMCSd's LuCI
 include, dependencies and ACL are adapted for X-WRT.
 VLMCSd's APK package version is `1113-r5`; its source remains the pinned
 `svn1113` archive with the original hash.
+The service package alone supplies the VLMCSd configuration and init script.
+The LuCI page uses the service's `auto_activate` option and `/etc/vlmcsd.ini`,
+and reloads VLMCSd after saving the INI file. VLMCSd keeps the service's
+default of disabled; enable it in LuCI when needed. Preparation checks file
+ownership and the app/service configuration before compilation.
 
 Local Linux preparation uses the same order as CI:
 
