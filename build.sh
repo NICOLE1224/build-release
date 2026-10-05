@@ -7,4 +7,3 @@ echo "Building ${RAX3000M_DEVICE} (${CONFIG_VERSION_NUMBER}) with ${jobs} jobs."
 if ! make -j"$jobs"; then
 	make -j1 V=s 2>&1 | tee ../make.log
 fi
-sh upload.sh

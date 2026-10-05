@@ -115,6 +115,7 @@ jobs:
           DEVICE: ${{ steps.release.outputs.device }}
         run: |
           python3 -B profiles/rax3000m/test_configure.py
+          python3 -B profiles/rax3000m/test_export_images.py x-wrt/scripts/json_add_image_info.py
           sh prepare-custom-packages.sh x-wrt
           sh profiles/rax3000m/configure.sh x-wrt "$RELEASE_TAG" "$DEVICE"
           sh profiles/rax3000m/write-provenance.sh x-wrt "$RELEASE_TAG" "$DEVICE" build-manifest.txt
@@ -128,9 +129,16 @@ jobs:
           CONFIG_VERSION_NUMBER: ${{ steps.release.outputs.release_tag }}
           RAX3000M_DEVICE: ${{ steps.release.outputs.device }}
         run: |
-          cp build.sh upload.sh x-wrt/
           cd x-wrt
-          bash build.sh "$(nproc)"
+          bash ../build.sh "$(nproc)"
+
+      - name: Export and verify RAX3000M firmware
+        env:
+          CONFIG_VERSION_NUMBER: ${{ steps.release.outputs.release_tag }}
+          RAX3000M_DEVICE: ${{ steps.release.outputs.device }}
+        run: |
+          cd x-wrt
+          sh ../upload.sh
 
       - name: Upload failure diagnostics
         if: failure()
@@ -144,6 +152,11 @@ jobs:
             x-wrt/.config
             x-wrt/tmp/.config-package.in
             x-wrt/tmp/.packageinfo
+            x-wrt/bin/targets/mediatek/filogic/*.itb
+            x-wrt/bin/targets/mediatek/filogic/*.bin
+            x-wrt/bin/targets/mediatek/filogic/*.json
+            x-wrt/bin/targets/mediatek/filogic/*.manifest
+            x-wrt/bin/targets/mediatek/filogic/sha256sums
             build-manifest.txt
           if-no-files-found: warn
 
@@ -153,6 +166,8 @@ jobs:
           name: x-wrt-rax3000m-${{ steps.release.outputs.release_tag }}-${{ steps.release.outputs.device }}
           path: |
             x-wrt/rom/
+            x-wrt/bin/targets/mediatek/filogic/profiles.json
+            x-wrt/bin/targets/mediatek/filogic/*.manifest
             rax3000m.config
             build-manifest.txt
           if-no-files-found: error
