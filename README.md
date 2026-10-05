@@ -59,8 +59,11 @@ image list is also selected for compilation (`m` or `y`); the image list alone
 does not select packages in Kconfig. After `make defconfig`, preparation checks
 all device packages before starting the build. Input and printer support
 switches are retained to satisfy the USB packages' visibility dependencies.
-Unrelated module selections,
-all-kernel-module builds and SDK builds are omitted.
+The base root filesystem uses `apk-openssl` and `wpad-openssl`, matching the
+official RAX3000M image; the conflicting mbedTLS variants are disabled.
+Preparation checks X-WRT's generated conflict rules against the base and
+device package sets after `make defconfig`.
+Unrelated module selections, all-kernel-module builds and SDK builds are omitted.
 
 The manifest records source, feed and custom-package revisions and the
 configuration hash. The resolved configuration is also an Actions artifact.

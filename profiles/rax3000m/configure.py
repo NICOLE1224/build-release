@@ -14,6 +14,13 @@ APPLICATIONS = ["luci-app-mosdns", "luci-app-wol", "luci-app-vlmcsd"]
 # so Kconfig will not select these automatically. They enable libevdev and
 # kmod-usb-printer; libudev/usbutils/usbmuxd also depend on the input chain.
 BUILD_SUPPORT_PACKAGES = ["input-support", "printer-support"]
+# The official RAX3000M image requests the OpenSSL providers. Select them in
+# the base rootfs too, otherwise omitted modular defaults become built-in on
+# defconfig and conflict when the per-device packages are installed later.
+IMAGE_PROVIDERS = {
+    "apk-openssl": "apk-mbedtls",
+    "wpad-openssl": "wpad-basic-mbedtls",
+}
 
 
 def configure(source: Path, tag: str, device: str) -> None:
@@ -49,6 +56,11 @@ def configure(source: Path, tag: str, device: str) -> None:
         for package in packages + BUILD_SUPPORT_PACKAGES if not package.startswith("-")
     }
     overrides.update({f"CONFIG_PACKAGE_{package}": "y" for package in required})
+    for preferred, fallback in IMAGE_PROVIDERS.items():
+        if preferred not in packages:
+            raise ValueError(f"official device package list no longer requests {preferred}")
+        overrides[f"CONFIG_PACKAGE_{preferred}"] = "y"
+        overrides[f"CONFIG_PACKAGE_{fallback}"] = "n"
     overrides.update({
         "CONFIG_ALL_KMODS": "n",
         "CONFIG_ALL_NONSHARED": "n",

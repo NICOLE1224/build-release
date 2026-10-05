@@ -142,6 +142,8 @@ jobs:
             make.log
             x-wrt/logs/
             x-wrt/.config
+            x-wrt/tmp/.config-package.in
+            x-wrt/tmp/.packageinfo
             build-manifest.txt
           if-no-files-found: warn
 
