@@ -1,0 +1,11 @@
+luci-app-mosdns
+mosdns
+v2dat
+v2ray-geoip
+v2ray-geosite
+luci-app-wol
+etherwake
+luci-app-vlmcsd
+vlmcsd
+luci-compat
+luci-lua-runtime

@@ -1,0 +1,7 @@
+# Keep the new build scripts and patches usable on Linux and Windows checkouts.
+*.sh text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+profiles/rax3000m/*.env text eol=lf
+profiles/rax3000m/packages.required text eol=lf
+profiles/rax3000m/patches/*.patch text eol=lf -whitespace

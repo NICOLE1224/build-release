@@ -1,41 +1,36 @@
 #!/bin/sh
 set -eu
-
+: "${CONFIG_VERSION_NUMBER:?CONFIG_VERSION_NUMBER is required}"
+: "${RAX3000M_DEVICE:?RAX3000M_DEVICE is required}"
+printf '%s\n' "$CONFIG_VERSION_NUMBER" | grep -Eq '^[0-9]+[.][0-9]+_b[0-9]{12}$'
+case "$RAX3000M_DEVICE" in
+	cmcc_rax3000m|cmcc_rax3000m-emmc-ubootlayout|cmcc_rax3000m-nand-ubootlayout) ;;
+	*) echo "upload: unsupported device" >&2; exit 1 ;;
+esac
 target_dir=bin/targets/mediatek/filogic
-rom_dir=rom
-sdk_dir=$rom_dir/sdk
-
-copy_one() {
-	pattern=$1
-	destination=$2
-	# shellcheck disable=SC2086 # Intentional expansion of the single pattern.
-	set -- "$target_dir"/$pattern
-	if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
-		echo "upload: expected exactly one file matching $pattern" >&2
-		exit 1
-	fi
-	cp "$1" "$destination/"
-	basename "$1"
-}
-
-mkdir -p "$rom_dir" "$sdk_dir"
-
-initramfs=$(copy_one \
-	'x-wrt-*-mediatek-filogic-tenda_be12-pro-initramfs-kernel.bin' \
-	"$rom_dir")
-sysupgrade=$(copy_one \
-	'x-wrt-*-mediatek-filogic-tenda_be12-pro-squashfs-sysupgrade.bin' \
-	"$rom_dir")
-sdk=$(copy_one 'x-wrt-sdk-*-mediatek-filogic_*.tar.zst' "$sdk_dir")
-
-printf 'Tenda BE12 Pro:%s %s\n' "$initramfs" "$sysupgrade" \
-	>"$rom_dir/map.list"
-(
-	cd "$rom_dir"
-	sha256sum "$initramfs" "$sysupgrade" >sha256sums.txt
-)
-printf '%s\n' "$sdk" >"$sdk_dir/sdk_map.list"
-(
-	cd "$sdk_dir"
-	sha256sum "$sdk" >sdk_sha256sums.txt
-)
+prefix="x-wrt-${CONFIG_VERSION_NUMBER}-mediatek-filogic-${RAX3000M_DEVICE}"
+mkdir -p rom
+case "$RAX3000M_DEVICE" in
+	cmcc_rax3000m)
+		recovery="$prefix-initramfs-recovery.itb"
+		sysupgrade="$prefix-squashfs-sysupgrade.itb"
+		;;
+	*)
+		recovery="$prefix-initramfs-kernel.bin"
+		sysupgrade="$prefix-squashfs-sysupgrade.bin"
+		;;
+esac
+for filename in "$recovery" "$sysupgrade"; do
+	[ -s "$target_dir/$filename" ] || {
+		echo "upload: missing required firmware $filename" >&2; exit 1
+	}
+	cp "$target_dir/$filename" rom/
+done
+# Hash only this run's exported images.
+set -- "$recovery" "$sysupgrade"
+factory="$prefix-squashfs-factory.bin"
+if [ -s "$target_dir/$factory" ]; then
+	cp "$target_dir/$factory" rom/
+	set -- "$@" "$factory"
+fi
+(cd rom && sha256sum "$@" >"sha256-${CONFIG_VERSION_NUMBER}.sum")
