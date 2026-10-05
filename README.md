@@ -57,7 +57,9 @@ applications, selects only the requested device and requires all three new
 applications after `make defconfig`. Every package in the selected device's
 image list is also selected for compilation (`m` or `y`); the image list alone
 does not select packages in Kconfig. After `make defconfig`, preparation checks
-all device packages before starting the build. Unrelated module selections,
+all device packages before starting the build. Input and printer support
+switches are retained to satisfy the USB packages' visibility dependencies.
+Unrelated module selections,
 all-kernel-module builds and SDK builds are omitted.
 
 The manifest records source, feed and custom-package revisions and the

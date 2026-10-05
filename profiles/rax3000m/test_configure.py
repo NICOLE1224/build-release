@@ -21,6 +21,7 @@ class DevicePackagesTest(unittest.TestCase):
         feed.mkdir(parents=True)
         lines = ["CONFIG_TARGET_PER_DEVICE_ROOTFS=y", "CONFIG_TARGET_MULTI_PROFILE=y",
                  "CONFIG_PACKAGE_luci-app-openclash=m", "CONFIG_PACKAGE_libopenssl=y",
+                 "CONFIG_PACKAGE_input-support=m", "CONFIG_PACKAGE_printer-support=m",
                  "CONFIG_PACKAGE_unrelated-device-package=m",
                  "CONFIG_PACKAGE_wpad-basic-mbedtls=m"]
         for device in sorted(configure.DEVICES):
@@ -39,6 +40,8 @@ class DevicePackagesTest(unittest.TestCase):
                 text = self.generate(device)
                 self.assertIn("CONFIG_PACKAGE_luci-app-openclash=m\n", text)
                 self.assertIn("CONFIG_PACKAGE_libopenssl=y\n", text)
+                self.assertIn("CONFIG_PACKAGE_input-support=m\n", text)
+                self.assertIn("CONFIG_PACKAGE_printer-support=m\n", text)
                 self.assertNotIn("CONFIG_PACKAGE_unrelated-device-package=", text)
                 self.assertNotIn("CONFIG_PACKAGE_wpad-basic-mbedtls=", text)
                 verify_config.verify(self.source, device)

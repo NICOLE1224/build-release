@@ -10,6 +10,10 @@ DEVICES = {
     "cmcc_rax3000m-nand-ubootlayout",
 }
 APPLICATIONS = ["luci-app-mosdns", "luci-app-wol", "luci-app-vlmcsd"]
+# Visibility dependencies in the official feed use plain DEPENDS (without +),
+# so Kconfig will not select these automatically. They enable libevdev and
+# kmod-usb-printer; libudev/usbutils/usbmuxd also depend on the input chain.
+BUILD_SUPPORT_PACKAGES = ["input-support", "printer-support"]
 
 
 def configure(source: Path, tag: str, device: str) -> None:
@@ -42,7 +46,7 @@ def configure(source: Path, tag: str, device: str) -> None:
     # per-device variants are installed only when assembling this device's image.
     overrides = {
         f"CONFIG_PACKAGE_{package}": "y" if upstream_values.get(f"CONFIG_PACKAGE_{package}") == "y" else "m"
-        for package in packages if not package.startswith("-")
+        for package in packages + BUILD_SUPPORT_PACKAGES if not package.startswith("-")
     }
     overrides.update({f"CONFIG_PACKAGE_{package}": "y" for package in required})
     overrides.update({
