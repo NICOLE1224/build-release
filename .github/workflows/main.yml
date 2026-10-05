@@ -164,7 +164,9 @@ jobs:
           tag: ${{ steps.release.outputs.asset_tag }}
           commit: ${{ github.sha }}
           name: X-WRT RAX3000M ${{ steps.release.outputs.release_tag }} (${{ steps.release.outputs.device }})
-          artifacts: x-wrt/rom/*.bin,x-wrt/rom/*.itb,x-wrt/rom/sha256-*.sum,build-manifest.txt
+          # Each layout exports either .bin or .itb; rom contains only checked
+          # firmware images and their versioned checksum file.
+          artifacts: x-wrt/rom/*,build-manifest.txt
           allowUpdates: true
           replacesArtifacts: true
           artifactErrorsFailBuild: true
