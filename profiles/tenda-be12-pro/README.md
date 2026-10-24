@@ -13,6 +13,10 @@ official X-WRT release tag and installing its matching feeds.
 - `write-provenance.sh` records the exact source and feed commits used by a
   build.
 
+The seed disables the unused `audio-support` feature gate. This keeps
+`ALL_KMODS` from selecting audio modules which pull in USB support. USB core
+and common modules remain prohibited by the profile checks.
+
 The Squeezelite Kconfig patch puts its codec options in an independent menu.
 Guarding them with the parent package creates a recursive dependency through
 the newer FFmpeg package. The codec options still default to disabled.

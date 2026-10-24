@@ -46,7 +46,8 @@ while IFS= read -r package; do
 done <"$profile_dir/packages.excluded"
 
 actual_seed="$source_root/.config.seed.actual"
-(cd "$source_root" && ./scripts/diffconfig.sh) |
+# Use the same host tools for capability probes as make defconfig.
+(cd "$source_root" && STAGING_DIR_HOST="$(pwd)/staging_dir/host" ./scripts/diffconfig.sh) |
 	sed '/^CONFIG_VERSION_NUMBER=/d' >"$actual_seed"
 
 if ! cmp -s "$profile_dir/config.seed" "$actual_seed"; then
