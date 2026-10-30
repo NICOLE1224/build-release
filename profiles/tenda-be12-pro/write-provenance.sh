@@ -44,4 +44,6 @@ sing_box_state="$source_root/.build-profile/tenda-be12-pro/sing-box.env"
 	printf 'meta-rules-dat %s\n' "$META_RULES_REVISION"
 	printf 'geoip-lite.dat sha256:%s\n' "$GEOIP_SHA256"
 	printf 'geosite.dat sha256:%s\n' "$GEOSITE_SHA256"
+	printf '\n[dropped_patches]\n'
+	printf 'hostapd %s sha256:%s\n' "$HOSTAPD_DROP_PATCH" "$HOSTAPD_DROP_PATCH_SHA256"
 } >"$output"

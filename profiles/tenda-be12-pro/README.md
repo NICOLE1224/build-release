@@ -30,3 +30,12 @@ Sing-box is intentionally not pinned to a version. During preparation,
 response to be neither a draft nor a prerelease. It downloads that release's
 source archive, calculates the package hash, and records the release ID,
 publication time, resolved version, URL, and hash in the build manifest.
+
+`prepare.sh` removes X-WRT's hostapd patch
+`820-ap-remove-a-sta-from-other-radios-before-adding-it-to-the-driver.patch`.
+It works around an ath11k firmware crash by removing a station from the other
+radios before adding it to the driver. In an AP MLD every link is a separate
+radio, so the patch deauthenticates the partner links of each MLO client during
+association and no MLO client completes the 4-way handshake. The BE12 Pro uses
+mt7996 and does not need the workaround. The removal is pinned by SHA-256; a
+changed or missing patch fails preparation so that the removal is reviewed.

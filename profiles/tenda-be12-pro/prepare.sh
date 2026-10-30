@@ -101,7 +101,21 @@ prepare_latest_stable_sing_box() {
 	} >"$state_dir/sing-box.env"
 }
 
+drop_official_patch() {
+	patch_file=$1
+	expected_sha256=$2
+
+	[ -f "$patch_file" ] || die "$patch_file is missing; review whether removal is still needed"
+	[ "$(sha256sum "$patch_file" | awk '{print $1}')" = "$expected_sha256" ] ||
+		die "$patch_file changed; review whether removal is still needed"
+	rm "$patch_file"
+}
+
 [ -d "$source_root/feeds/packages/.git" ] || die "run feeds update before this script"
+
+drop_official_patch \
+	"$source_root/package/network/services/hostapd/patches/$HOSTAPD_DROP_PATCH" \
+	"$HOSTAPD_DROP_PATCH_SHA256"
 mkdir -p "$source_root/package/custom"
 
 v2ray_feed="$source_root/package/feeds/packages/v2ray-geodata"
