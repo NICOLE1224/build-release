@@ -1,8 +1,9 @@
 diff --git a/Makefile b/Makefile
-index bb4da09..6afd23d 100644
+index bb4da09..83e3185 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -8,6 +8,6 @@ include $(TOPDIR)/rules.mk
+@@ -7,7 +7,7 @@
+ include $(TOPDIR)/rules.mk
  
  PKG_NAME:=v2ray-geodata
 -PKG_VERSION:=$(shell date "+%Y.%m.%d")
@@ -10,7 +11,7 @@ index bb4da09..6afd23d 100644
  PKG_RELEASE:=1
  
  PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
-@@ -37,16 +37,19 @@ define Package/v2ray-geosite
+@@ -37,17 +37,20 @@ define Package/v2ray-geosite
    LICENSE:=GPL-3.0
  endef
  
@@ -24,15 +25,18 @@ index bb4da09..6afd23d 100644
  
  define Build/Compile
  	( \
- 		pushd $(PKG_BUILD_DIR) ; \
+-		pushd $(PKG_BUILD_DIR) ; \
 -		curl -L $(GEOIP_URL) -o geoip.dat --progress-bar ; \
 -		curl -L $(GEOSITE_URL) -o geosite.dat --progress-bar ; \
 -		[ "$(curl -sL $(GEOIP_URL).sha256sum | awk '{print $1}')" != "$(sha256sum geoip.dat | awk '{print $1}')" ] && exit 1 ; \
 -		[ "$(curl -sL $(GEOSITE_URL).sha256sum | awk '{print $1}')" != "$(sha256sum geosite.dat | awk '{print $1}')" ] && exit 1 ; \
+-		popd ; \
++		set -e ; \
++		cd $(PKG_BUILD_DIR) ; \
 +		curl --fail --location --retry 3 $(GEOIP_URL) -o geoip.dat --progress-bar ; \
 +		curl --fail --location --retry 3 $(GEOSITE_URL) -o geosite.dat --progress-bar ; \
 +		echo "$(GEOIP_HASH)  geoip.dat" | sha256sum -c - ; \
 +		echo "$(GEOSITE_HASH)  geosite.dat" | sha256sum -c - ; \
- 		popd ; \
  	)
  endef
+ 
