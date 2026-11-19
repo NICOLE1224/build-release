@@ -10,17 +10,19 @@ from pathlib import Path
 from configure import DEVICES
 
 
-def export_images(source: Path, tag: str, device: str) -> list[Path]:
-    if device not in DEVICES or not re.fullmatch(r"\d+\.\d+_b\d{12}", tag):
+def export_images(source: Path, tag: str, device_name: str) -> list[Path]:
+    if device_name not in DEVICES or not re.fullmatch(r"\d+\.\d+_b\d{12}", tag):
         raise ValueError("invalid release tag or device")
-    target = source / "bin/targets/mediatek/filogic"
+    device = DEVICES[device_name]
+    target = source / "bin/targets" / device.target / device.subtarget
     metadata = json.loads((target / "profiles.json").read_text(encoding="utf-8"))
-    if metadata.get("target") != "mediatek/filogic" or metadata.get("version_number") != tag:
+    if metadata.get("target") != f"{device.target}/{device.subtarget}" or \
+            metadata.get("version_number") != tag:
         raise ValueError("image metadata does not match the requested target and release")
     profiles = metadata.get("profiles", {})
-    if set(profiles) != {device}:
+    if set(profiles) != {device_name}:
         raise ValueError("image metadata does not contain exactly the selected device")
-    images = profiles[device]["images"]
+    images = profiles[device_name]["images"]
     selected = []
     for kind, filesystem in (("kernel", "initramfs"), ("sysupgrade", "squashfs")):
         matches = [image for image in images
@@ -28,18 +30,18 @@ def export_images(source: Path, tag: str, device: str) -> list[Path]:
         if len(matches) != 1:
             raise ValueError(f"expected exactly one {filesystem} {kind} image, found {len(matches)}")
         selected.extend(matches)
-    factories = [image for image in images
-                 if image.get("type") == "factory" and image.get("filesystem") == "squashfs"]
-    if len(factories) > 1 or (device.endswith("-nand-ubootlayout") and len(factories) != 1):
-        raise ValueError("missing or ambiguous NAND factory image")
-    selected.extend(factories)
+    for artifact in device.artifacts:
+        matches = [image for image in images if image.get("type") == artifact]
+        if len(matches) > 1:
+            raise ValueError(f"ambiguous {artifact} artifact")
+        selected.extend(matches)
 
     # Validate the entire set before exporting anything. Names come from the
     # build rather than reconstructing OpenWrt's version sanitization rules.
     checked = []
     for image in selected:
         name = image["name"]
-        if not re.fullmatch(r"[A-Za-z0-9._-]+\.(bin|itb)", name):
+        if not re.fullmatch(r"[A-Za-z0-9._-]+\.(bin|itb|fip)", name):
             raise ValueError(f"invalid firmware filename in metadata: {name}")
         path = target / name
         if not path.is_file() or path.stat().st_size == 0:
@@ -59,7 +61,7 @@ def export_images(source: Path, tag: str, device: str) -> list[Path]:
         shutil.copyfile(path, destination)
         exported.append(destination)
         print(f"Exported {path.name} (sha256 {digest})")
-    checksum = output / f"sha256-{tag}.sum"
+    checksum = output / f"sha256-{tag}-{device_name}.sum"
     checksum.write_text("".join(f"{digest}  {path.name}\n" for path, digest in checked),
                         encoding="utf-8", newline="\n")
     return exported

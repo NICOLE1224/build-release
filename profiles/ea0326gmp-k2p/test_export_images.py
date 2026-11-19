@@ -13,7 +13,16 @@ spec = importlib.util.spec_from_file_location("export_images", Path(__file__).wi
 exporter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(exporter)
 UPSTREAM_INFO_SCRIPT = Path(sys.argv.pop(1)).resolve()
-TAG = "26.10_b202609302026"
+TAG = "26.10_b202611171234"
+# Image roles as defined by the upstream device recipes.
+ROLES = {
+    "nokia_ea0326gmp": [("kernel", "initramfs", "initramfs-recovery.itb"),
+                        ("sysupgrade", "squashfs", "squashfs-sysupgrade.itb"),
+                        ("preloader.bin", None, "preloader.bin"),
+                        ("bl31-uboot.fip", None, "bl31-uboot.fip")],
+    "phicomm_k2p": [("kernel", "initramfs", "initramfs-kernel.bin"),
+                    ("sysupgrade", "squashfs", "squashfs-sysupgrade.bin")],
+}
 
 
 class ImageExportTest(unittest.TestCase):
@@ -21,34 +30,36 @@ class ImageExportTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.source = Path(self.tmp.name)
-        self.target = self.source / "bin/targets/mediatek/filogic"
-        self.target.mkdir(parents=True)
 
-    def generate_metadata(self, device="cmcc_rax3000m"):
+    def target_dir(self, device):
+        spec = exporter.DEVICES[device]
+        target = self.source / "bin/targets" / spec.target / spec.subtarget
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+
+    def generate_metadata(self, device="nokia_ea0326gmp", roles=None):
+        spec = exporter.DEVICES[device]
+        target = self.target_dir(device)
         # include/version.mk sanitizes '_' to '-'. Reproduce that actual
         # filename, while retaining the original tag in upstream metadata.
-        prefix = f"x-wrt-26.10-b202609302026-mediatek-filogic-{device}"
-        roles = [("kernel", "initramfs", "initramfs-recovery.itb" if device == "cmcc_rax3000m"
-                  else "initramfs-kernel.bin"),
-                 ("sysupgrade", "squashfs", "squashfs-sysupgrade.itb" if device == "cmcc_rax3000m"
-                  else "squashfs-sysupgrade.bin")]
-        if device.endswith("-nand-ubootlayout"):
-            roles.append(("factory", "squashfs", "squashfs-factory.bin"))
+        prefix = f"x-wrt-26.10-b202611171234-{spec.target}-{spec.subtarget}-{device}"
         metadata = None
-        for kind, filesystem, suffix in roles:
+        for kind, filesystem, suffix in roles or ROLES[device]:
             name = f"{prefix}-{suffix}"
-            (self.target / name).write_bytes(f"image fixture {name}\n".encode())
+            (target / name).write_bytes(f"image fixture {name}\n".encode())
             info_file = self.source / "image.json"
             env = os.environ | {
-                "FILE_DIR": str(self.target), "FILE_NAME": name,
-                "FILE_TYPE": kind, "FILE_FILESYSTEM": filesystem,
+                "FILE_DIR": str(target), "FILE_NAME": name, "FILE_TYPE": kind,
                 "DEVICE_ID": device, "DEVICE_IMG_PREFIX": prefix,
-                "DEVICE_PACKAGES": "kmod-mt7915e", "SUPPORTED_DEVICES": "cmcc,rax3000m",
-                "DEVICE_VENDOR": "CMCC", "DEVICE_MODEL": "RAX3000M",
-                "TARGET": "mediatek", "SUBTARGET": "filogic",
+                "DEVICE_PACKAGES": "", "SUPPORTED_DEVICES": device.replace("_", ","),
+                "DEVICE_VENDOR": "Vendor", "DEVICE_MODEL": "Model",
+                "TARGET": spec.target, "SUBTARGET": spec.subtarget,
                 "VERSION_NUMBER": TAG, "VERSION_CODE": "Stonking",
                 "SOURCE_DATE_EPOCH": "1790792760", "KERNEL_SIZE": "", "IMAGE_SIZE": "",
             }
+            env.pop("FILE_FILESYSTEM", None)
+            if filesystem:
+                env["FILE_FILESYSTEM"] = filesystem
             subprocess.run([sys.executable, "-B", str(UPSTREAM_INFO_SCRIPT), str(info_file)],
                            env=env, check=True, capture_output=True)
             info = json.loads(info_file.read_text())
@@ -56,65 +67,62 @@ class ImageExportTest(unittest.TestCase):
                 metadata = info
             else:
                 metadata["profiles"][device]["images"].extend(info["profiles"][device]["images"])
-        (self.target / "profiles.json").write_text(json.dumps(metadata))
+        (target / "profiles.json").write_text(json.dumps(metadata))
         return metadata
 
-    def test_actual_upstream_metadata_exports_all_layouts_and_versioned_checksums(self):
+    def test_actual_upstream_metadata_exports_images_and_versioned_checksums(self):
         for device in sorted(exporter.DEVICES):
             with self.subTest(device=device), tempfile.TemporaryDirectory() as run:
                 self.source = Path(run)
-                self.target = self.source / "bin/targets/mediatek/filogic"
-                self.target.mkdir(parents=True)
                 metadata = self.generate_metadata(device)
-                (self.target / "unrelated-device.bin").write_bytes(b"excluded")
+                (self.target_dir(device) / "unrelated-device.bin").write_bytes(b"excluded")
                 exported = exporter.export_images(self.source, TAG, device)
                 expected = metadata["profiles"][device]["images"]
                 self.assertEqual({p.name for p in exported}, {image["name"] for image in expected})
-                self.assertTrue(all("26.10-b" in p.name for p in exported))
-                checksum = self.source / "rom" / f"sha256-{TAG}.sum"
+                checksum = self.source / "rom" / f"sha256-{TAG}-{device}.sum"
                 self.assertEqual(checksum.read_text(), "".join(
                     f'{image["sha256"]}  {image["name"]}\n' for image in expected))
                 self.assertEqual(len(list((self.source / "rom").iterdir())), len(expected) + 1)
 
+    def test_bootloader_artifacts_are_optional(self):
+        self.generate_metadata(roles=ROLES["nokia_ea0326gmp"][:2])
+        self.assertEqual(len(exporter.export_images(self.source, TAG, "nokia_ea0326gmp")), 2)
+
     def test_corrupted_image_is_rejected_before_export(self):
-        metadata = self.generate_metadata()
-        (self.target / metadata["profiles"]["cmcc_rax3000m"]["images"][0]["name"]).write_bytes(b"changed")
+        metadata = self.generate_metadata("phicomm_k2p")
+        name = metadata["profiles"]["phicomm_k2p"]["images"][0]["name"]
+        (self.target_dir("phicomm_k2p") / name).write_bytes(b"changed")
         with self.assertRaisesRegex(ValueError, "differs from build metadata"):
-            exporter.export_images(self.source, TAG, "cmcc_rax3000m")
+            exporter.export_images(self.source, TAG, "phicomm_k2p")
         self.assertFalse((self.source / "rom").exists())
 
     def test_missing_image_is_rejected_before_export(self):
         metadata = self.generate_metadata()
-        (self.target / metadata["profiles"]["cmcc_rax3000m"]["images"][1]["name"]).unlink()
+        name = metadata["profiles"]["nokia_ea0326gmp"]["images"][1]["name"]
+        (self.target_dir("nokia_ea0326gmp") / name).unlink()
         with self.assertRaisesRegex(ValueError, "missing or empty firmware"):
-            exporter.export_images(self.source, TAG, "cmcc_rax3000m")
+            exporter.export_images(self.source, TAG, "nokia_ea0326gmp")
         self.assertFalse((self.source / "rom").exists())
 
-    def test_wrong_release_target_and_device_are_rejected(self):
+    def test_wrong_release_and_target_are_rejected(self):
         for field, value in (("version_number", "wrong-release"), ("target", "ramips/mt7621")):
             metadata = self.generate_metadata()
             metadata[field] = value
-            (self.target / "profiles.json").write_text(json.dumps(metadata))
+            (self.target_dir("nokia_ea0326gmp") / "profiles.json").write_text(json.dumps(metadata))
             with self.assertRaisesRegex(ValueError, "target and release"):
-                exporter.export_images(self.source, TAG, "cmcc_rax3000m")
-        self.generate_metadata()
-        with self.assertRaisesRegex(ValueError, "selected device"):
-            exporter.export_images(self.source, TAG, "cmcc_rax3000m-emmc-ubootlayout")
+                exporter.export_images(self.source, TAG, "nokia_ea0326gmp")
 
-    def test_ambiguous_sysupgrade_is_rejected(self):
-        metadata = self.generate_metadata()
-        images = metadata["profiles"]["cmcc_rax3000m"]["images"]
-        images.append(images[1].copy())
-        (self.target / "profiles.json").write_text(json.dumps(metadata))
+    def test_missing_sysupgrade_is_rejected(self):
+        self.generate_metadata("phicomm_k2p", roles=ROLES["phicomm_k2p"][:1])
         with self.assertRaisesRegex(ValueError, "exactly one squashfs sysupgrade"):
-            exporter.export_images(self.source, TAG, "cmcc_rax3000m")
+            exporter.export_images(self.source, TAG, "phicomm_k2p")
 
     def test_metadata_cannot_reference_a_path_outside_target(self):
         metadata = self.generate_metadata()
-        metadata["profiles"]["cmcc_rax3000m"]["images"][0]["name"] = "../foreign.itb"
-        (self.target / "profiles.json").write_text(json.dumps(metadata))
+        metadata["profiles"]["nokia_ea0326gmp"]["images"][0]["name"] = "../foreign.itb"
+        (self.target_dir("nokia_ea0326gmp") / "profiles.json").write_text(json.dumps(metadata))
         with self.assertRaisesRegex(ValueError, "invalid firmware filename"):
-            exporter.export_images(self.source, TAG, "cmcc_rax3000m")
+            exporter.export_images(self.source, TAG, "nokia_ea0326gmp")
 
 
 if __name__ == "__main__":

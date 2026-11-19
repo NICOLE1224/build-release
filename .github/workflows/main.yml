@@ -1,4 +1,4 @@
-name: x-wrt-rax3000m
+name: x-wrt-ea0326gmp-k2p
 
 on:
   workflow_dispatch:
@@ -8,20 +8,20 @@ on:
         required: false
         type: string
       device:
-        description: RAX3000M bootloader and partition layout.
+        description: Device to build; all builds Nokia EA0326GMP and Phicomm K2P.
         type: choice
-        default: cmcc_rax3000m
+        default: all
         options:
-          - cmcc_rax3000m
-          - cmcc_rax3000m-emmc-ubootlayout
-          - cmcc_rax3000m-nand-ubootlayout
+          - all
+          - nokia_ea0326gmp
+          - phicomm_k2p
   push:
     branches:
-      - rax3000m
+      - ea0326gmp-k2p
     paths:
       - .gitattributes
       - .github/workflows/main.yml
-      - profiles/rax3000m/**
+      - profiles/ea0326gmp-k2p/**
       - build.sh
       - upload.sh
       - prepare-custom-packages.sh
@@ -30,20 +30,20 @@ permissions:
   contents: write
 
 concurrency:
-  group: x-wrt-rax3000m-${{ inputs.device || 'cmcc_rax3000m' }}
-  # A corrected push supersedes an obsolete build of the same RAX3000M layout.
+  group: x-wrt-ea0326gmp-k2p-${{ inputs.device || 'all' }}
+  # A corrected push supersedes an obsolete build of the same device set.
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
-  build:
-    if: github.ref == 'refs/heads/rax3000m'
+  resolve:
+    if: github.ref == 'refs/heads/ea0326gmp-k2p'
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      source_commit: ${{ steps.release.outputs.source_commit }}
+      matrix: ${{ steps.release.outputs.matrix }}
     steps:
-      - name: Checkout RAX3000M build definition
-        uses: actions/checkout@v7
-
-      - name: Resolve official release and device
+      - name: Resolve official release and devices
         id: release
         env:
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
@@ -51,10 +51,10 @@ jobs:
         run: |
           set -eu
           release_tag="${INPUT_RELEASE_TAG}"
-          device="${INPUT_DEVICE:-cmcc_rax3000m}"
-          case "$device" in
-            cmcc_rax3000m|cmcc_rax3000m-emmc-ubootlayout|cmcc_rax3000m-nand-ubootlayout) ;;
-            *) echo "Unsupported RAX3000M device" >&2; exit 1 ;;
+          case "${INPUT_DEVICE:-all}" in
+            all) devices='nokia_ea0326gmp phicomm_k2p' ;;
+            nokia_ea0326gmp|phicomm_k2p) devices="$INPUT_DEVICE" ;;
+            *) echo "Unsupported device" >&2; exit 1 ;;
           esac
           if [ -z "$release_tag" ]; then
             release_tag="$(
@@ -72,18 +72,35 @@ jobs:
                    END { if (peeled != "") print peeled; else print tag }'
           )"
           test -n "$source_commit"
-          . profiles/rax3000m/sources.env
-          mosdns_revision="$(
-            git ls-remote "$MOSDNS_REPOSITORY" "refs/heads/$MOSDNS_BRANCH" | awk '{print $1}'
+          matrix="$(
+            for device in $devices; do
+              case "$device" in
+                nokia_ea0326gmp) target=mediatek/filogic ;;
+                phicomm_k2p) target=ramips/mt7621 ;;
+              esac
+              jq -cn --arg device "$device" --arg target "$target" '{device: $device, target: $target}'
+            done | jq -cs '{include: .}'
           )"
-          printf '%s\n' "$mosdns_revision" | grep -Eqx '[0-9a-f]{40}'
           {
             echo "release_tag=$release_tag"
             echo "source_commit=$source_commit"
-            echo "device=$device"
-            echo "mosdns_revision=$mosdns_revision"
-            echo "asset_tag=rax3000m-${release_tag}-${device}"
+            echo "matrix=$matrix"
           } >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve.outputs.matrix) }}
+    env:
+      RELEASE_TAG: ${{ needs.resolve.outputs.release_tag }}
+      DEVICE: ${{ matrix.device }}
+      ASSET_TAG: ${{ matrix.device }}-${{ needs.resolve.outputs.release_tag }}
+    steps:
+      - name: Checkout EA0326GMP/K2P build definition
+        uses: actions/checkout@v7
 
       - name: Initialize build environment
         env:
@@ -103,8 +120,7 @@ jobs:
 
       - name: Clone exact official source
         env:
-          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
-          EXPECTED_COMMIT: ${{ steps.release.outputs.source_commit }}
+          EXPECTED_COMMIT: ${{ needs.resolve.outputs.source_commit }}
         run: |
           git clone --depth 1 --branch "$RELEASE_TAG" https://github.com/x-wrt/x-wrt.git x-wrt
           test "$(git -C x-wrt rev-parse HEAD)" = "$EXPECTED_COMMIT"
@@ -115,34 +131,30 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Apply RAX3000M applications and configuration
-        env:
-          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
-          DEVICE: ${{ steps.release.outputs.device }}
-          MOSDNS_RESOLVED_REVISION: ${{ steps.release.outputs.mosdns_revision }}
+      - name: Apply applications and configuration
         run: |
-          python3 -B profiles/rax3000m/test_configure.py
-          python3 -B profiles/rax3000m/test_export_images.py x-wrt/scripts/json_add_image_info.py
+          python3 -B profiles/ea0326gmp-k2p/test_configure.py
+          python3 -B profiles/ea0326gmp-k2p/test_export_images.py x-wrt/scripts/json_add_image_info.py
           sh prepare-custom-packages.sh x-wrt
-          sh profiles/rax3000m/configure.sh x-wrt "$RELEASE_TAG" "$DEVICE"
-          sh profiles/rax3000m/write-provenance.sh x-wrt "$RELEASE_TAG" "$DEVICE" build-manifest.txt
-          cp x-wrt/.config rax3000m.config
+          sh profiles/ea0326gmp-k2p/configure.sh x-wrt "$RELEASE_TAG" "$DEVICE"
+          sh profiles/ea0326gmp-k2p/write-provenance.sh x-wrt "$RELEASE_TAG" "$DEVICE" build-manifest.txt
+          cp x-wrt/.config "$DEVICE.config"
 
       - name: Check build prerequisites
         run: make -C x-wrt prereq
 
-      - name: Build RAX3000M firmware
+      - name: Build firmware
         env:
-          CONFIG_VERSION_NUMBER: ${{ steps.release.outputs.release_tag }}
-          RAX3000M_DEVICE: ${{ steps.release.outputs.device }}
+          CONFIG_VERSION_NUMBER: ${{ needs.resolve.outputs.release_tag }}
+          BUILD_DEVICE: ${{ matrix.device }}
         run: |
           cd x-wrt
           bash ../build.sh "$(nproc)"
 
-      - name: Export and verify RAX3000M firmware
+      - name: Export and verify firmware
         env:
-          CONFIG_VERSION_NUMBER: ${{ steps.release.outputs.release_tag }}
-          RAX3000M_DEVICE: ${{ steps.release.outputs.device }}
+          CONFIG_VERSION_NUMBER: ${{ needs.resolve.outputs.release_tag }}
+          BUILD_DEVICE: ${{ matrix.device }}
         run: |
           cd x-wrt
           sh ../upload.sh
@@ -151,7 +163,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: rax3000m-failure-${{ github.run_id }}
+          name: ${{ matrix.device }}-failure-${{ github.run_id }}
           include-hidden-files: true
           path: |
             make.log
@@ -159,35 +171,34 @@ jobs:
             x-wrt/.config
             x-wrt/tmp/.config-package.in
             x-wrt/tmp/.packageinfo
-            x-wrt/bin/targets/mediatek/filogic/*.itb
-            x-wrt/bin/targets/mediatek/filogic/*.bin
-            x-wrt/bin/targets/mediatek/filogic/*.json
-            x-wrt/bin/targets/mediatek/filogic/*.manifest
-            x-wrt/bin/targets/mediatek/filogic/sha256sums
+            x-wrt/bin/targets/${{ matrix.target }}/*.itb
+            x-wrt/bin/targets/${{ matrix.target }}/*.bin
+            x-wrt/bin/targets/${{ matrix.target }}/*.json
+            x-wrt/bin/targets/${{ matrix.target }}/*.manifest
+            x-wrt/bin/targets/${{ matrix.target }}/sha256sums
             build-manifest.txt
           if-no-files-found: warn
 
       - name: Upload firmware and configuration artifact
         uses: actions/upload-artifact@v7
         with:
-          name: x-wrt-rax3000m-${{ steps.release.outputs.release_tag }}-${{ steps.release.outputs.device }}
+          name: x-wrt-${{ matrix.device }}-${{ needs.resolve.outputs.release_tag }}
           path: |
             x-wrt/rom/
-            x-wrt/bin/targets/mediatek/filogic/profiles.json
-            x-wrt/bin/targets/mediatek/filogic/*.manifest
-            rax3000m.config
+            x-wrt/bin/targets/${{ matrix.target }}/profiles.json
+            x-wrt/bin/targets/${{ matrix.target }}/*.manifest
+            ${{ matrix.device }}.config
             build-manifest.txt
           if-no-files-found: error
 
-      - name: Publish RAX3000M release assets
+      - name: Publish release assets
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.release.outputs.asset_tag }}
+          tag: ${{ env.ASSET_TAG }}
           commit: ${{ github.sha }}
-          name: X-WRT RAX3000M ${{ steps.release.outputs.release_tag }} (${{ steps.release.outputs.device }})
-          # Each layout exports either .bin or .itb; rom contains only checked
-          # firmware images and their versioned checksum file.
+          name: X-WRT ${{ matrix.device }} ${{ needs.resolve.outputs.release_tag }}
+          # rom contains only checked firmware images and their checksum file.
           artifacts: x-wrt/rom/*,build-manifest.txt
           allowUpdates: true
           replacesArtifacts: true

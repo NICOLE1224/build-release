@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-from configure import IMAGE_PROVIDERS
+from configure import DEVICES, is_excluded
 
 
 def verify_install_conflicts(values: dict, requested: set, removed: set, metadata: Path) -> int:
@@ -36,17 +36,20 @@ def verify_install_conflicts(values: dict, requested: set, removed: set, metadat
     return checked
 
 
-def verify(source: Path, device: str) -> None:
+def verify(source: Path, device_name: str) -> None:
+    device = DEVICES[device_name]
     text = (source / ".config").read_text()
     values = dict(re.findall(r"^(CONFIG_[^=\s]+)=(.*)$", text, re.M))
     selected = [key for key, value in values.items()
                 if key.startswith("CONFIG_TARGET_DEVICE_") and value == "y"]
-    expected = f"CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_{device}"
+    expected = f"CONFIG_TARGET_DEVICE_{device.board}_DEVICE_{device_name}"
     if selected != [expected]:
         raise ValueError(f"expected only {expected}=y, found {selected}")
     if values.get("CONFIG_TARGET_PER_DEVICE_ROOTFS") != "y":
         raise ValueError("per-device root filesystem must be enabled")
-    key = f"CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_{device}"
+    if values.get("CONFIG_JSON_OVERVIEW_IMAGE_INFO") != "y":
+        raise ValueError("image metadata (profiles.json) must be enabled")
+    key = f"CONFIG_TARGET_DEVICE_PACKAGES_{device.board}_DEVICE_{device_name}"
     packages = json.loads(values.get(key, '""')).split()
     if not packages:
         raise ValueError("device package list is empty")
@@ -56,22 +59,29 @@ def verify(source: Path, device: str) -> None:
                      if values.get(f"CONFIG_PACKAGE_{package}") not in ("y", "m"))
     if missing:
         raise ValueError("device packages are not selected for compilation: " + ", ".join(missing))
-    required = (Path(__file__).parent / "packages.required").read_text().splitlines()
-    for package in required:
-        if package and not package.startswith("#") and values.get(f"CONFIG_PACKAGE_{package}") != "y":
+    for package in device.applications:
+        if values.get(f"CONFIG_PACKAGE_{package}") != "y":
             raise ValueError(f"required package is not built in: {package}")
+    excluded = sorted({package for package in requested if is_excluded(package)} |
+                      {name.removeprefix("CONFIG_PACKAGE_") for name, value in values.items()
+                       if name.startswith("CONFIG_PACKAGE_") and value in ("y", "m")
+                       and is_excluded(name.removeprefix("CONFIG_PACKAGE_"))})
+    if excluded:
+        raise ValueError("Clash/MosDNS packages must not be built: " + ", ".join(excluded))
     metadata = source / "tmp/.config-package.in"
     if not metadata.is_file():
         raise ValueError("generated package conflict metadata is missing; run make defconfig first")
     checked = verify_install_conflicts(values, requested, removed, metadata)
-    for preferred, fallback in IMAGE_PROVIDERS.items():
+    for preferred, fallbacks in device.providers.items():
         if values.get(f"CONFIG_PACKAGE_{preferred}") != "y":
             raise ValueError(f"base root filesystem must use {preferred}")
         # Kconfig may retain an unused fallback as a compiled module. Only y
         # and the device install list put it into a root filesystem.
-        if values.get(f"CONFIG_PACKAGE_{fallback}") == "y" or fallback in requested:
-            raise ValueError(f"{fallback} must not be installed when using {preferred}")
-    print(f"Verified {device}: all {len(requested)} device packages selected; {checked} rootfs conflict rules checked")
+        for fallback in fallbacks:
+            if values.get(f"CONFIG_PACKAGE_{fallback}") == "y" or fallback in requested:
+                raise ValueError(f"{fallback} must not be installed when using {preferred}")
+    print(f"Verified {device_name}: all {len(requested)} device packages selected; "
+          f"{checked} rootfs conflict rules checked; no Clash/MosDNS packages")
 
 
 if __name__ == "__main__":
@@ -79,5 +89,5 @@ if __name__ == "__main__":
         sys.exit("usage: verify-config.py SOURCE_ROOT DEVICE")
     try:
         verify(Path(sys.argv[1]), sys.argv[2])
-    except ValueError as error:
+    except (ValueError, KeyError) as error:
         sys.exit(f"configure: {error}")

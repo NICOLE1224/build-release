@@ -7,15 +7,11 @@ release_tag=${2:?}
 device=${3:?}
 output=${4:?}
 . "$profile_dir/sources.env"
-mosdns_state="$source_root/.build-profile/rax3000m/mosdns.env"
-[ -f "$mosdns_state" ] || { echo "provenance: missing resolved MosDNS state" >&2; exit 1; }
-# shellcheck disable=SC1090
-. "$mosdns_state"
 {
 	printf 'release_tag=%s\ndevice=%s\n' "$release_tag" "$device"
 	printf 'builder_commit=%s\n' "$(git -C "$builder_root" rev-parse HEAD)"
 	printf 'source_commit=%s\n' "$(git -C "$source_root" rev-parse HEAD)"
-	printf 'upstream_config=%s\n' "$(cat "$source_root/.build-profile/rax3000m/upstream-config")"
+	printf 'upstream_config=%s\n' "$(cat "$source_root/.build-profile/ea0326gmp-k2p/upstream-config")"
 	printf 'config_sha256=%s\n' "$(sha256sum "$source_root/.config" | awk '{print $1}')"
 	printf '\n[feeds]\n'
 	for feed in "$source_root"/feeds/*; do
@@ -24,12 +20,13 @@ mosdns_state="$source_root/.build-profile/rax3000m/mosdns.env"
 			"$(git -C "$feed" rev-parse HEAD)" "$(git -C "$feed" config --get remote.origin.url)"
 	done
 	printf '\n[custom_sources]\n'
-	printf 'mosdns branch:%s %s %s\n' "$MOSDNS_BRANCH" "$MOSDNS_REVISION" "$MOSDNS_REPOSITORY"
 	printf 'vlmcsd-luci %s %s\n' "$VLMCSD_LUCI_REVISION" "$VLMCSD_LUCI_REPOSITORY"
 	printf 'vlmcsd-service %s %s\n' "$VLMCSD_SERVICE_REVISION" "$VLMCSD_SERVICE_REPOSITORY"
 	grep -E '^PKG_(VERSION|RELEASE|SOURCE_VERSION|HASH):=' \
 		"$source_root/package/custom/vlmcsd/Makefile"
-	printf '\n[official_packages]\n'
-	grep -E '^PKG_(VERSION|RELEASE|HASH):=' "$source_root/feeds/packages/net/tailscale/Makefile" |
-		sed 's/^/tailscale /'
+	if grep -qx 'CONFIG_PACKAGE_tailscale=y' "$source_root/.config"; then
+		printf '\n[official_packages]\n'
+		grep -E '^PKG_(VERSION|RELEASE|HASH):=' "$source_root/feeds/packages/net/tailscale/Makefile" |
+			sed 's/^/tailscale /'
+	fi
 } >"$output"
