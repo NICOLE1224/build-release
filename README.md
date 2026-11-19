@@ -3,7 +3,7 @@
 The `rax3000m` branch builds only CMCC RAX3000M firmware, based on the
 selected official X-WRT tag's device configuration. It adds:
 
-- `luci-app-mosdns`, MosDNS, v2dat and official GeoIP/GeoSite packages;
+- `luci-app-mosdns`, MosDNS, geo2txt and official GeoIP/GeoSite packages;
 - `luci-app-wol` and etherwake;
 - `luci-app-vlmcsd`, vlmcsd and LuCI Lua compatibility support;
 - the official feeds' `tailscale` client and `luci-app-tailscale-community`.
