@@ -45,9 +45,38 @@ Run **Actions → x-wrt-tenda-be12-pro → Run workflow**. Leave `release_tag`
 empty to use the newest official tag, or enter a tag such as
 `26.04_b202609050853`.
 
-The hourly scheduled run performs the same lookup. It rebuilds when either the
-official X-WRT tag changes or a newer stable Sing-box release appears; otherwise
-it skips the existing release. A manual run always rebuilds the selected tag.
+A manual run always rebuilds the selected tag.
+
+### Scheduled builds
+
+GitHub runs scheduled workflows only from the default branch, so the hourly
+`scheduled-builds` workflow (`.github/workflows/schedule.yml`) lives here and
+covers all three device branches, four firmwares in total:
+
+| Branch | Firmware | Release tag |
+|--------|----------|-------------|
+| `tenda-be12-pro` | Tenda BE12 Pro | `<x-wrt tag>` |
+| `rax3000m` | CMCC RAX3000M (`cmcc_rax3000m`) | `rax3000m-<x-wrt tag>-cmcc_rax3000m` |
+| `ea0326gmp-k2p` | Nokia EA0326GMP, Phicomm K2P | `<device>-<x-wrt tag>` |
+
+`.github/schedule-builds.sh` resolves the newest X-WRT tag and compares each
+release's `build-manifest.txt` with the current dynamic inputs: the newest
+stable Sing-box (BE12 Pro) and the MosDNS branch head (BE12 Pro, RAX3000M). For
+each out-of-date firmware it starts that branch's own `main.yml` with
+`workflow_dispatch`, passing the same X-WRT tag to every build. Changes to
+pinned inputs arrive through branch commits, which those branches build on push.
+
+A branch is skipped while one of its builds is queued or running. After a
+failed build it is retried once the branch head changes or six hours have
+passed, so a broken build does not repeat every hour. Running
+**Actions → scheduled-builds → Run workflow** with `force` dispatches all four
+firmwares regardless of their state. To check the decisions locally without
+dispatching anything:
+
+```sh
+GITHUB_REPOSITORY=NICOLE1224/build-release DRY_RUN=true sh .github/schedule-builds.sh
+```
+
 Successful runs publish:
 
 - the initramfs and sysupgrade `.bin` images directly;

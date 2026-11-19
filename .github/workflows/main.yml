@@ -7,8 +7,6 @@ on:
         description: Official x-wrt/x-wrt release tag; empty selects the newest tag.
         required: false
         type: string
-  schedule:
-    - cron: '17 * * * *'
 
 permissions:
   contents: write
@@ -32,7 +30,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -eu
 
@@ -68,7 +65,6 @@ jobs:
           )"
           printf '%s\n' "${sing_box_tag}" |
             grep -Eq '^v[0-9]+[.][0-9]+[.][0-9]+$'
-          sing_box_version="${sing_box_tag#v}"
 
           . profiles/tenda-be12-pro/sources.env
           mosdns_revision="$(
@@ -77,35 +73,14 @@ jobs:
           )"
           printf '%s\n' "${mosdns_revision}" | grep -Eqx '[0-9a-f]{40}'
 
-          should_build=true
-          if [ "${EVENT_NAME}" = schedule ]; then
-            manifest_dir="$(mktemp -d)"
-            if gh release download "${release_tag}" \
-                 --repo "${GITHUB_REPOSITORY}" \
-                 --pattern build-manifest.txt \
-                 --dir "${manifest_dir}" >/dev/null 2>&1 &&
-               grep -Fq "sing-box latest-stable ${sing_box_version} " \
-                 "${manifest_dir}/build-manifest.txt" &&
-               grep -Fq "mosdns branch:${MOSDNS_BRANCH} ${mosdns_revision} " \
-                 "${manifest_dir}/build-manifest.txt"; then
-              should_build=false
-            fi
-          fi
-
           {
             echo "release_tag=${release_tag}"
             echo "source_commit=${source_commit}"
             echo "sing_box_tag=${sing_box_tag}"
             echo "mosdns_revision=${mosdns_revision}"
-            echo "should_build=${should_build}"
           } >>"${GITHUB_OUTPUT}"
 
-      - name: Report existing release
-        if: steps.release.outputs.should_build == 'false'
-        run: echo "Release already contains the current X-WRT, Sing-box and MosDNS versions."
-
       - name: Initialize environment
-        if: steps.release.outputs.should_build == 'true'
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -131,7 +106,6 @@ jobs:
           df -h /
 
       - name: Clone exact official source
-        if: steps.release.outputs.should_build == 'true'
         env:
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           EXPECTED_COMMIT: ${{ steps.release.outputs.source_commit }}
@@ -140,14 +114,12 @@ jobs:
           test "$(git -C x-wrt rev-parse HEAD)" = "${EXPECTED_COMMIT}"
 
       - name: Install matching official feeds
-        if: steps.release.outputs.should_build == 'true'
         run: |
           cd x-wrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
       - name: Apply Tenda BE12 Pro profile
-        if: steps.release.outputs.should_build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
@@ -160,11 +132,9 @@ jobs:
           cp x-wrt/.config x-wrt/feeds/x/rom/lede/config.nico-tenda-be12-pro
 
       - name: Check build prerequisites
-        if: steps.release.outputs.should_build == 'true'
         run: make -C x-wrt prereq
 
       - name: Build firmware
-        if: steps.release.outputs.should_build == 'true'
         env:
           CONFIG_VERSION_NUMBER: ${{ steps.release.outputs.release_tag }}
         run: |
@@ -174,13 +144,12 @@ jobs:
 
       - name: Upload failure log
         uses: actions/upload-artifact@v7
-        if: failure() && steps.release.outputs.should_build == 'true'
+        if: failure()
         with:
           name: build-failure-log
           path: make.log
 
       - name: Upload firmware artifact
-        if: steps.release.outputs.should_build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: x-wrt-tenda-be12-pro=mediatek-filogic
@@ -189,7 +158,6 @@ jobs:
             build-manifest.txt
 
       - name: Publish release assets
-        if: steps.release.outputs.should_build == 'true'
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
