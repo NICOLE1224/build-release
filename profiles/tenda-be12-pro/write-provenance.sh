@@ -16,6 +16,13 @@ sing_box_state="$source_root/.build-profile/tenda-be12-pro/sing-box.env"
 }
 # shellcheck disable=SC1090
 . "$sing_box_state"
+mosdns_state="$source_root/.build-profile/tenda-be12-pro/mosdns.env"
+[ -f "$mosdns_state" ] || {
+	echo "provenance: missing resolved MosDNS state" >&2
+	exit 1
+}
+# shellcheck disable=SC1090
+. "$mosdns_state"
 
 {
 	printf 'release_tag=%s\n' "$release_tag"
@@ -34,7 +41,7 @@ sing_box_state="$source_root/.build-profile/tenda-be12-pro/sing-box.env"
 			"$(git -C "$feed" config --get remote.origin.url)"
 	done
 	printf '\n[custom_sources]\n'
-	printf 'mosdns %s %s\n' "$MOSDNS_REVISION" "$MOSDNS_REPOSITORY"
+	printf 'mosdns branch:%s %s %s\n' "$MOSDNS_BRANCH" "$MOSDNS_REVISION" "$MOSDNS_REPOSITORY"
 	printf 'v2ray-geodata %s %s\n' "$V2RAY_GEODATA_REVISION" "$V2RAY_GEODATA_REPOSITORY"
 	printf 'sing-box latest-stable %s sha256:%s %s\n' \
 		"$SING_BOX_VERSION" "$SING_BOX_SOURCE_SHA256" "$SING_BOX_SOURCE_URL"

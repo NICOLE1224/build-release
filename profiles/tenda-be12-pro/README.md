@@ -5,7 +5,8 @@ official X-WRT release tag and installing its matching feeds.
 
 - `config.seed` is the canonical `scripts/diffconfig.sh` output. It selects
   only the Tenda BE12 Pro device and the desired packages.
-- `sources.env` pins custom-package commits and build-time geodata hashes.
+- `sources.env` pins custom-package commits and build-time geodata hashes,
+  and names the branch MosDNS follows.
 - `patches/` contains reviewable changes to official or pinned package trees.
 - `prepare.sh` clones and patches custom packages.
 - `configure.sh` expands the seed with `make defconfig`, validates package
@@ -24,6 +25,14 @@ the newer FFmpeg package. The codec options still default to disabled.
 The MosDNS runtime updater intentionally follows MetaCubeX's `latest` release.
 Build-time geodata is instead pinned by commit and SHA-256 so rebuilding the
 same source produces the same package input.
+
+MosDNS (`luci-app-mosdns` and `mosdns`) is intentionally not pinned. It
+follows the head of `MOSDNS_BRANCH` in `sources.env`. CI resolves the branch
+head once, rebuilds the current release when it differs from the commit in the
+published manifest, and passes the commit to `prepare.sh` as
+`MOSDNS_RESOLVED_REVISION`; a local run resolves it itself. The commit is
+recorded in the build manifest. If upstream changes stop
+`patches/mosdns-geodata.patch` from applying, preparation fails.
 
 Sing-box is intentionally not pinned to a version. During preparation,
 `prepare.sh` reads GitHub's official `releases/latest` API and requires the

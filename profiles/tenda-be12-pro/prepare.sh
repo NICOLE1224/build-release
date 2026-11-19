@@ -33,6 +33,27 @@ apply_patch() {
 	git -C "$repository" apply "$patch_file"
 }
 
+resolve_mosdns_revision() {
+	state_dir=$1
+
+	# CI passes the commit it used to decide whether to build, so the build
+	# uses the same input even if the branch moves in the meantime.
+	revision=${MOSDNS_RESOLVED_REVISION:-}
+	if [ -z "$revision" ]; then
+		revision=$(git ls-remote "$MOSDNS_REPOSITORY" "refs/heads/$MOSDNS_BRANCH" |
+			awk '{print $1}')
+	fi
+	printf '%s\n' "$revision" | grep -Eqx '[0-9a-f]{40}' ||
+		die "invalid MosDNS revision for branch $MOSDNS_BRANCH: $revision"
+
+	mkdir -p "$state_dir"
+	{
+		printf 'MOSDNS_BRANCH=%s\n' "$MOSDNS_BRANCH"
+		printf 'MOSDNS_REVISION=%s\n' "$revision"
+	} >"$state_dir/mosdns.env"
+	MOSDNS_REVISION=$revision
+}
+
 prepare_latest_stable_sing_box() {
 	makefile=$1
 	state_dir=$2
@@ -125,6 +146,7 @@ elif [ -e "$v2ray_feed" ]; then
 	die "$v2ray_feed exists but is not a feed symlink"
 fi
 
+resolve_mosdns_revision "$source_root/.build-profile/tenda-be12-pro"
 clone_pinned "$MOSDNS_REPOSITORY" "$MOSDNS_REVISION" \
 	"$source_root/package/custom/mosdns"
 clone_pinned "$V2RAY_GEODATA_REPOSITORY" "$V2RAY_GEODATA_REVISION" \

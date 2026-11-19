@@ -70,6 +70,13 @@ jobs:
             grep -Eq '^v[0-9]+[.][0-9]+[.][0-9]+$'
           sing_box_version="${sing_box_tag#v}"
 
+          . profiles/tenda-be12-pro/sources.env
+          mosdns_revision="$(
+            git ls-remote "${MOSDNS_REPOSITORY}" "refs/heads/${MOSDNS_BRANCH}" |
+              awk '{print $1}'
+          )"
+          printf '%s\n' "${mosdns_revision}" | grep -Eqx '[0-9a-f]{40}'
+
           should_build=true
           if [ "${EVENT_NAME}" = schedule ]; then
             manifest_dir="$(mktemp -d)"
@@ -78,6 +85,8 @@ jobs:
                  --pattern build-manifest.txt \
                  --dir "${manifest_dir}" >/dev/null 2>&1 &&
                grep -Fq "sing-box latest-stable ${sing_box_version} " \
+                 "${manifest_dir}/build-manifest.txt" &&
+               grep -Fq "mosdns branch:${MOSDNS_BRANCH} ${mosdns_revision} " \
                  "${manifest_dir}/build-manifest.txt"; then
               should_build=false
             fi
@@ -87,12 +96,13 @@ jobs:
             echo "release_tag=${release_tag}"
             echo "source_commit=${source_commit}"
             echo "sing_box_tag=${sing_box_tag}"
+            echo "mosdns_revision=${mosdns_revision}"
             echo "should_build=${should_build}"
           } >>"${GITHUB_OUTPUT}"
 
       - name: Report existing release
         if: steps.release.outputs.should_build == 'false'
-        run: echo "Release already contains the current X-WRT and Sing-box versions."
+        run: echo "Release already contains the current X-WRT, Sing-box and MosDNS versions."
 
       - name: Initialize environment
         if: steps.release.outputs.should_build == 'true'
@@ -141,6 +151,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          MOSDNS_RESOLVED_REVISION: ${{ steps.release.outputs.mosdns_revision }}
         run: |
           sh prepare-custom-packages.sh x-wrt
           sh profiles/tenda-be12-pro/configure.sh x-wrt "${RELEASE_TAG}"
