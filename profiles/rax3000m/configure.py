@@ -9,7 +9,7 @@ DEVICES = {
     "cmcc_rax3000m-emmc-ubootlayout",
     "cmcc_rax3000m-nand-ubootlayout",
 }
-APPLICATIONS = ["luci-app-mosdns", "luci-app-wol", "luci-app-vlmcsd"]
+APPLICATIONS = ["luci-app-mosdns", "luci-app-wol", "luci-app-vlmcsd", "tailscale", "luci-app-tailscale-community"]
 # Visibility dependencies in the official feed use plain DEPENDS (without +),
 # so Kconfig will not select these automatically. They enable libevdev and
 # kmod-usb-printer; libudev/usbutils/usbmuxd also depend on the input chain.

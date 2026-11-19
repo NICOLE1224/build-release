@@ -72,10 +72,16 @@ jobs:
                    END { if (peeled != "") print peeled; else print tag }'
           )"
           test -n "$source_commit"
+          . profiles/rax3000m/sources.env
+          mosdns_revision="$(
+            git ls-remote "$MOSDNS_REPOSITORY" "refs/heads/$MOSDNS_BRANCH" | awk '{print $1}'
+          )"
+          printf '%s\n' "$mosdns_revision" | grep -Eqx '[0-9a-f]{40}'
           {
             echo "release_tag=$release_tag"
             echo "source_commit=$source_commit"
             echo "device=$device"
+            echo "mosdns_revision=$mosdns_revision"
             echo "asset_tag=rax3000m-${release_tag}-${device}"
           } >>"$GITHUB_OUTPUT"
 
@@ -113,6 +119,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
           DEVICE: ${{ steps.release.outputs.device }}
+          MOSDNS_RESOLVED_REVISION: ${{ steps.release.outputs.mosdns_revision }}
         run: |
           python3 -B profiles/rax3000m/test_configure.py
           python3 -B profiles/rax3000m/test_export_images.py x-wrt/scripts/json_add_image_info.py

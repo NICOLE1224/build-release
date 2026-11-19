@@ -7,6 +7,10 @@ release_tag=${2:?}
 device=${3:?}
 output=${4:?}
 . "$profile_dir/sources.env"
+mosdns_state="$source_root/.build-profile/rax3000m/mosdns.env"
+[ -f "$mosdns_state" ] || { echo "provenance: missing resolved MosDNS state" >&2; exit 1; }
+# shellcheck disable=SC1090
+. "$mosdns_state"
 {
 	printf 'release_tag=%s\ndevice=%s\n' "$release_tag" "$device"
 	printf 'builder_commit=%s\n' "$(git -C "$builder_root" rev-parse HEAD)"
@@ -20,9 +24,12 @@ output=${4:?}
 			"$(git -C "$feed" rev-parse HEAD)" "$(git -C "$feed" config --get remote.origin.url)"
 	done
 	printf '\n[custom_sources]\n'
-	printf 'mosdns %s %s\n' "$MOSDNS_REVISION" "$MOSDNS_REPOSITORY"
+	printf 'mosdns branch:%s %s %s\n' "$MOSDNS_BRANCH" "$MOSDNS_REVISION" "$MOSDNS_REPOSITORY"
 	printf 'vlmcsd-luci %s %s\n' "$VLMCSD_LUCI_REVISION" "$VLMCSD_LUCI_REPOSITORY"
 	printf 'vlmcsd-service %s %s\n' "$VLMCSD_SERVICE_REVISION" "$VLMCSD_SERVICE_REPOSITORY"
 	grep -E '^PKG_(VERSION|RELEASE|SOURCE_VERSION|HASH):=' \
 		"$source_root/package/custom/vlmcsd/Makefile"
+	printf '\n[official_packages]\n'
+	grep -E '^PKG_(VERSION|RELEASE|HASH):=' "$source_root/feeds/packages/net/tailscale/Makefile" |
+		sed 's/^/tailscale /'
 } >"$output"

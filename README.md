@@ -5,11 +5,13 @@ selected official X-WRT tag's device configuration. It adds:
 
 - `luci-app-mosdns`, MosDNS, v2dat and official GeoIP/GeoSite packages;
 - `luci-app-wol` and etherwake;
-- `luci-app-vlmcsd`, vlmcsd and LuCI Lua compatibility support.
+- `luci-app-vlmcsd`, vlmcsd and LuCI Lua compatibility support;
+- the official feeds' `tailscale` client and `luci-app-tailscale-community`.
 
 Upstream applications, including OpenClash, remain in the image. MosDNS is
 installed with its upstream default of **disabled**; configure DNS ports and
-forwarding before enabling it alongside OpenClash.
+forwarding before enabling it alongside OpenClash. Tailscale is managed
+from LuCI (VPN → Tailscale) or with `tailscale up` on the router.
 
 The existing `tenda-be12-pro` branch and its releases are independent.
 This branch does not build Nokia EA0326GMP, K2P or BE12 Pro.
@@ -51,9 +53,13 @@ existing default BE12 Pro branch.
 
 ## Configuration
 
-Official feeds follow the chosen X-WRT tag. Custom package commits are pinned
-in `profiles/rax3000m/sources.env`. The configuration retains upstream default
-applications, selects only the requested device and requires all three new
+Official feeds follow the chosen X-WRT tag; Tailscale and its LuCI app come from
+that tag's packages and luci feeds. MosDNS follows the head of `MOSDNS_BRANCH` (`v5`) in
+`profiles/rax3000m/sources.env`: CI resolves the branch head once and passes
+it to preparation as `MOSDNS_RESOLVED_REVISION` (a local run resolves it
+itself), and the commit is recorded in `build-manifest.txt`. The VLMCSd commits
+remain pinned in the same file. The configuration retains upstream default
+applications, selects only the requested device and requires all four new
 applications after `make defconfig`. Every package in the selected device's
 image list is also selected for compilation (`m` or `y`); the image list alone
 does not select packages in Kconfig. After `make defconfig`, preparation checks

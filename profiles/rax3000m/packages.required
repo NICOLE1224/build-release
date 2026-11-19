@@ -9,3 +9,5 @@ luci-app-vlmcsd
 vlmcsd
 luci-compat
 luci-lua-runtime
+tailscale
+luci-app-tailscale-community
